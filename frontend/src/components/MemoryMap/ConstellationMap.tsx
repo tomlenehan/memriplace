@@ -330,7 +330,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
     <Button as={Link} to="/constellation/$constellationId" params={{ constellationId: String(focusedGroup.id) }}
       className="sky-group-edit" variant="outline" leftIcon={<FiEdit3 />} mt={4}>Edit or share</Button>
     {focusedGroup.overview && <Box mt={3}><NarrationControl path={`constellations/${focusedGroup.id}`}
-      displayText={focusedGroup.overview} spokenTitle={focusedGroup.title} /></Box>}
+      displayText={focusedGroup.overview} spokenTitle={focusedGroup.title} showTextSizeControl /></Box>}
     {!focusedGroup.overview && <Text className="sky-group-panel-overview" whiteSpace="pre-wrap" mt={4}>
       These memories are connected in your personal night sky.
     </Text>}
@@ -354,7 +354,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
       variant="secondary" leftIcon={<FiEdit3 />} w="full" mt={4}>Open Memory</Button>
     {selected.image_url && <Image src={selected.image_url} alt="" maxH="180px" w="full" objectFit="contain" mt={5} />}
     <Box mt={4}><NarrationControl path={`memories/${selected.id}`} displayText={selected.summary_text}
-      spokenTitle={selected.title || "A remembered moment"} /></Box>
+      spokenTitle={selected.title || "A remembered moment"} showTextSizeControl /></Box>
     <Box className="sky-story-actions">
       <HStack justify="space-between" mb={4}>
         <IconButton aria-label="Previous memory" icon={<FiChevronLeft />} variant="outline" onClick={() => stepSelection(-1)} isDisabled={visibleStories.length < 2} />

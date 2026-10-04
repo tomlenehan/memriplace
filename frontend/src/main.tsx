@@ -11,6 +11,7 @@ import {StrictMode} from "react"
 import {OpenAPI} from "./client"
 import { API_BASE_URL } from "./config"
 import theme from "./theme"
+import { ReadingTextSizeProvider } from "./components/Common/ReadingTextSize"
 
 OpenAPI.BASE = API_BASE_URL
 OpenAPI.TOKEN = async () => {
@@ -31,7 +32,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Provider store={store}>
             <ChakraProvider theme={theme}>
                 <QueryClientProvider client={queryClient}>
-                    <RouterProvider router={router} />
+                    <ReadingTextSizeProvider>
+                        <RouterProvider router={router} />
+                    </ReadingTextSizeProvider>
                 </QueryClientProvider>
             </ChakraProvider>
         </Provider>

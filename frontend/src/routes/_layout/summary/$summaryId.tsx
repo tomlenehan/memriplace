@@ -31,6 +31,7 @@ import ConstellationStar from "../../../components/Common/ConstellationStar"
 import NarrationControl from "../../../components/Common/NarrationControl"
 import useCustomToast from "../../../hooks/useCustomToast"
 import { API_BASE_URL } from "../../../config"
+import { ReadingTextSizeControl, useReadingTextSize } from "../../../components/Common/ReadingTextSize"
 
 export const Route = createFileRoute("/_layout/summary/$summaryId")({
   component: SummaryPage,
@@ -51,6 +52,7 @@ interface GeneratedImageOption {
 }
 
 function SummaryPage() {
+  const { scale } = useReadingTextSize()
   const { summaryId } = Route.useParams<{ summaryId: string }>() // Correct type for summaryId
   const {
     register,
@@ -320,11 +322,15 @@ function SummaryPage() {
                   {errors.title && <Text color="red.500">{errors.title.message}</Text>}
                 </FormControl>
                 <FormControl mt={4} isInvalid={!!errors.summary}>
-                  <FormLabel>Your memory</FormLabel>
+                  <Flex align="center" justify="space-between" flexWrap="wrap" gap={2} mb={2}>
+                    <FormLabel mb={0}>Your memory</FormLabel>
+                    <ReadingTextSizeControl />
+                  </Flex>
                   <Textarea
                     minHeight={280}
                     bg="#FFFEF9"
                     lineHeight="1.8"
+                    style={{ fontSize: `calc(1rem * ${scale})` }}
                     {...register("summary", {
                       required: "Summary is required",
                     })}

@@ -21,6 +21,7 @@ import { ConversationsService } from "../../../client"
 import ConstellationStar from "../../../components/Common/ConstellationStar"
 import ChatInput from "../../../components/Conversations/ChatInput"
 import ChatMessages from "../../../components/Conversations/ChatMessages"
+import { ReadingTextSizeControl, READING_TEXT_SIZE_ENABLED } from "../../../components/Common/ReadingTextSize"
 
 const MAX_NODE_USER_TURNS = 8
 const MIN_NODE_USER_TURNS_BEFORE_SAVE = 4
@@ -202,7 +203,10 @@ function ConversationPage() {
         )}
 
 
-        <Box flex="1" minH={0} overflow="hidden" bg="#FBF9F1">
+        <Box flex="1" minH={0} display="flex" flexDirection="column" overflow="hidden" bg="#FBF9F1">
+          {READING_TEXT_SIZE_ENABLED && <Flex justify="flex-end" px={{ base: 4, md: 7 }} py={1} borderBottom="1px solid #EFEADD">
+            <ReadingTextSizeControl />
+          </Flex>}
           <ChatMessages conversationId={id} />
         </Box>
         <ChatInput

@@ -27,6 +27,7 @@ import { ConversationsService, SummariesService, type ChatMessageCreate, type Ch
 import { API_BASE_URL } from "../../config"
 import useCustomToast from "../../hooks/useCustomToast"
 import { useRealtimeStory } from "../../hooks/useRealtimeStory"
+import { useReadingTextSize } from "../Common/ReadingTextSize"
 import {
   addMessage,
   addStreamingMessage,
@@ -58,6 +59,7 @@ const statusLabels = {
 const MIN_STORY_TURNS_BEFORE_SAVE = 4
 
 const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySaved, userTurnCount }: ChatInputProps) => {
+  const { scale } = useReadingTextSize()
   const {
     register,
     handleSubmit,
@@ -535,6 +537,7 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
                 inputRef.current = element
               }}
               aria-label="Story message"
+              style={{ fontSize: `calc(1rem * ${scale})` }}
               placeholder={chatStatus !== "succeeded"
                 ? "Loading your story..."
                 : isFirstTurn
