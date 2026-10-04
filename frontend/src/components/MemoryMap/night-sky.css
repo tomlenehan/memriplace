@@ -690,6 +690,24 @@
 
 .sky-unfinished-node-icon svg { width: 12px; height: 12px; }
 
+.sky-unfinished-node-icon--in-progress {
+  display: flex;
+  width: 36px;
+  gap: 1px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.sky-unfinished-node-icon--in-progress svg { width: 11px; height: 11px; }
+
+.sky-unfinished-node-more {
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  transform: translateY(-2px);
+}
+
 .sky-unfinished-node.active .sky-node-button,
 .sky-unfinished-node .sky-node-hit:hover .sky-node-button,
 .sky-unfinished-node .sky-node-hit:focus-visible .sky-node-button {

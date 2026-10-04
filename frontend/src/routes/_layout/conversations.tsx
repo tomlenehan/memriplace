@@ -90,7 +90,6 @@ function MemoryMap() {
   const queryClient = useQueryClient()
   const startRequestInFlight = useRef(false)
   useEffect(() => {
-    setCrafting(false)
     setView("sky")
     setFocusedGroupId(null)
   }, [mode])
@@ -137,6 +136,9 @@ function MemoryMap() {
       ),
     [storiesQuery.data],
   )
+  useEffect(() => {
+    setCrafting(mode === "constellations" && stories.length >= 2)
+  }, [mode, stories.length])
   const relationships = relationshipsQuery.data ?? []
   const storyById = useMemo(
     () => new Map(stories.map((story) => [story.id, story])),
@@ -255,7 +257,6 @@ function MemoryMap() {
           conversations={conversationsQuery.data?.data ?? []}
           onStartMemory={openTopics}
           groups={groupsQuery.data ?? []}
-          groupsLoaded={groupsQuery.isSuccess}
           mode={mode}
           crafting={crafting}
           onCraftingChange={setCrafting}
@@ -263,8 +264,12 @@ function MemoryMap() {
           onFocusedGroupChange={setFocusedGroupId}
           toolbar={<Box className="sky-toolbar">{modeTabs}</Box>}
           headerActions={<Flex className="sky-header-actions">
-            {mode === "memories" ? <Button className="sky-primary-action sky-primary-action-add" variant="accent" size="md" leftIcon={<StarPlusIcon />} onClick={openTopics}>Add memory</Button> : <Button className="sky-primary-action" variant="accent" size="md" leftIcon={<ConnectedStarsIcon />}
-              isDisabled={crafting || stories.length < 2} onClick={() => { setView("sky"); setCrafting(true) }}>Create constellation</Button>}
+            {mode === "memories" ? <Button className="sky-primary-action sky-primary-action-add" variant="accent" size="md" leftIcon={<StarPlusIcon />} onClick={openTopics}>Add memory</Button> : stories.length < 2
+              ? <Button className="sky-primary-action sky-primary-action-add" variant="accent" size="md" leftIcon={<StarPlusIcon />} onClick={openTopics}>
+                Add memory
+              </Button>
+              : <Button className="sky-primary-action" variant="accent" size="md" leftIcon={<ConnectedStarsIcon />}
+                isDisabled={crafting} onClick={() => { setView("sky"); setCrafting(true) }}>Create constellation</Button>}
             <Button className="sky-list-toggle" size="md" variant="ghost" leftIcon={<FiList />}
               isDisabled={mode === "memories" && stories.length === 0} onClick={() => setView(view === "sky" ? "list" : "sky")}>
               {view === "sky" ? "View as list" : "Back to sky"}
