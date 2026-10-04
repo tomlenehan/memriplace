@@ -47,6 +47,16 @@ const ink = "#17353B"
 const muted = "#61777A"
 const paper = "#FFFDF5"
 const accents = ["#D88B4A", "#4B8D82", "#9A78AA", "#CE7667", "#638CAA"]
+const MEMORY_PAGE_SIZE = 100
+
+async function readAllSavedMemories(): Promise<StorySummaryPublic[]> {
+  const stories: StorySummaryPublic[] = []
+  for (let skip = 0; ; skip += MEMORY_PAGE_SIZE) {
+    const page = await SummariesService.readStorySummaries({ limit: MEMORY_PAGE_SIZE, skip })
+    stories.push(...page)
+    if (page.length < MEMORY_PAGE_SIZE) return stories
+  }
+}
 
 function StarPlusIcon() {
   return (
@@ -90,7 +100,7 @@ function MemoryMap() {
   })
   const storiesQuery = useQuery({
     queryKey: ["summaries"],
-    queryFn: () => SummariesService.readStorySummaries({ limit: 100 }),
+    queryFn: readAllSavedMemories,
   })
   const relationshipsQuery = useQuery({
     queryKey: ["storyRelationships"],
@@ -135,7 +145,7 @@ function MemoryMap() {
   const paths = useMemo(() => organizeStoryPaths(conversationsQuery.data?.data ?? [], stories),
     [conversationsQuery.data, stories])
 
-  const isLoading = conversationsQuery.isLoading || storiesQuery.isLoading
+  const isLoading = conversationsQuery.isLoading || storiesQuery.isLoading || (mode === "constellations" && groupsQuery.isLoading)
   const hasError = conversationsQuery.isError || storiesQuery.isError
 
   const startStory = (topic: StoryStarterTopic) => {
@@ -148,6 +158,15 @@ function MemoryMap() {
     createConversation.reset()
     setTopicOpen(true)
   }
+  const changeMode = (nextMode: "memories" | "constellations") => {
+    void navigate({ to: "/conversations", search: nextMode === "constellations" ? { mode: "constellations" } : {} })
+    setView("sky")
+    setCrafting(false)
+  }
+  const modeTabs = <HStack className="sky-mode-switch" spacing={0} role="group" aria-label="Night Sky view">
+    <Button className="sky-mode-button" aria-pressed={mode === "memories"} onClick={() => changeMode("memories")}>Memories</Button>
+    <Button className="sky-mode-button" aria-pressed={mode === "constellations"} onClick={() => changeMode("constellations")}>Constellations</Button>
+  </HStack>
 
   if (isLoading) {
     return (
@@ -180,7 +199,7 @@ function MemoryMap() {
           again.
         </Alert>
       )}
-      {stories.length === 0 && paths.inProgress.length === 0 && paths.suggested.length === 0 ? (
+      {mode === "memories" && stories.length === 0 && paths.inProgress.length === 0 && paths.suggested.length === 0 ? (
         <Box
           bg="linear-gradient(135deg, #F8FAE9, #FFF5DC 65%, #F7ECDF)"
           border="1px solid #E8E2D3"
@@ -189,6 +208,9 @@ function MemoryMap() {
           py={{ base: 10, md: 14 }}
           textAlign="center"
         >
+          <Flex justify="center" mb={8}>
+            {modeTabs}
+          </Flex>
           <ConstellationStar
             h={{ base: "176px", md: "208px" }}
             label="A smiling star floating among a constellation"
@@ -233,25 +255,18 @@ function MemoryMap() {
           conversations={conversationsQuery.data?.data ?? []}
           onStartMemory={openTopics}
           groups={groupsQuery.data ?? []}
+          groupsLoaded={groupsQuery.isSuccess}
           mode={mode}
           crafting={crafting}
           onCraftingChange={setCrafting}
           focusedGroupId={focusedGroupId}
           onFocusedGroupChange={setFocusedGroupId}
-          toolbar={<Box className="sky-toolbar">
-            <HStack className="sky-mode-switch" spacing={0} role="group" aria-label="Night Sky view">
-              <Button className="sky-mode-button" aria-pressed={mode === "memories"}
-                onClick={() => { void navigate({ to: "/conversations", search: {} }); setView("sky"); setCrafting(false) }}>Memories</Button>
-              <Button className="sky-mode-button" aria-pressed={mode === "constellations"}
-                isDisabled={stories.length < 2}
-                onClick={() => { void navigate({ to: "/conversations", search: { mode: "constellations" } }); setView("sky"); setCrafting(false) }}>Constellations</Button>
-            </HStack>
-          </Box>}
+          toolbar={<Box className="sky-toolbar">{modeTabs}</Box>}
           headerActions={<Flex className="sky-header-actions">
             {mode === "memories" ? <Button className="sky-primary-action sky-primary-action-add" variant="accent" size="md" leftIcon={<StarPlusIcon />} onClick={openTopics}>Add memory</Button> : <Button className="sky-primary-action" variant="accent" size="md" leftIcon={<ConnectedStarsIcon />}
-              isDisabled={crafting} onClick={() => setCrafting(true)}>Create constellation</Button>}
+              isDisabled={crafting || stories.length < 2} onClick={() => { setView("sky"); setCrafting(true) }}>Create constellation</Button>}
             <Button className="sky-list-toggle" size="md" variant="ghost" leftIcon={<FiList />}
-              isDisabled={stories.length === 0} onClick={() => setView(view === "sky" ? "list" : "sky")}>
+              isDisabled={mode === "memories" && stories.length === 0} onClick={() => setView(view === "sky" ? "list" : "sky")}>
               {view === "sky" ? "View as list" : "Back to sky"}
             </Button>
           </Flex>}
@@ -260,7 +275,7 @@ function MemoryMap() {
               {stories.map((story, index) => <MemoryCard key={story.id} story={story}
                 accent={accents[index % accents.length]} relationships={relationships} storyById={storyById} />)}
             </SimpleGrid>
-            : <ConstellationList groups={groupsQuery.data ?? []} onOpen={(id) => {
+            : <ConstellationList groups={groupsQuery.data ?? []} onAddMemory={openTopics} onOpen={(id) => {
               setFocusedGroupId(id)
               setView("sky")
             }} /> : null}
@@ -272,7 +287,7 @@ function MemoryMap() {
           Saved memories are here. Connections are temporarily unavailable.
         </Text>
       )}
-      {groupsQuery.isError && stories.length > 0 && <Text color={muted} fontSize="sm" mt={4}>Your memories are here, but saved constellations are temporarily unavailable.</Text>}
+      {groupsQuery.isError && <Text color={muted} fontSize="sm" mt={4}>Saved constellations are temporarily unavailable. Please try again.</Text>}
       <StoryTopicPicker isOpen={topicOpen} onClose={() => { if (!startingTopic) setTopicOpen(false) }}
         onChoose={startStory} startingTopic={startingTopic} hasError={createConversation.isError} />
     </Box>
@@ -281,7 +296,7 @@ function MemoryMap() {
 
 const constellationAccents = ["#F8D881", "#8ED8BC", "#D9B8F0", "#F5AC91", "#91C9EF", "#F39FB8"]
 
-function ConstellationList({ groups, onOpen }: { groups: Constellation[]; onOpen: (id: number) => void }) {
+function ConstellationList({ groups, onOpen, onAddMemory }: { groups: Constellation[]; onOpen: (id: number) => void; onAddMemory: () => void }) {
   if (groups.length === 0) {
     return <Center minH="300px" flexDirection="column" textAlign="center" px={6}>
       <Center w="58px" h="58px" borderRadius="14px" bg="#E4F2EA" color="#3F7F74" mb={4}>
@@ -289,6 +304,7 @@ function ConstellationList({ groups, onOpen }: { groups: Constellation[]; onOpen
       </Center>
       <Heading size="md">No constellations yet</Heading>
       <Text color={muted} mt={2}>Connect two or more memories to create your first one.</Text>
+      <Button variant="accent" mt={5} onClick={onAddMemory}>Add a memory</Button>
     </Center>
   }
 

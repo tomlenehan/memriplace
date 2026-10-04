@@ -67,6 +67,8 @@ class ConstellationPrivate(BaseModel):
     title: str
     overview: str
     source_hash: str | None
+    proposal_text: str | None
+    proposal_source_hash: str | None
     created_at: datetime
     modified_at: datetime
     publication_id: int | None
@@ -134,6 +136,8 @@ def _read(session: SessionDep, record: Constellation) -> ConstellationPrivate:
         title=record.title,
         overview=record.overview,
         source_hash=record.source_hash,
+        proposal_text=record.proposal_text,
+        proposal_source_hash=record.proposal_source_hash,
         created_at=record.created_at,
         modified_at=record.modified_at,
         publication_id=publication.id if publication else None,
@@ -300,6 +304,9 @@ def update_constellation(
         record.title = body.title.strip()
         record.overview = body.overview.strip()
         record.source_hash = body.source_hash
+        record.proposal_text = None
+        record.proposal_source_hash = None
+        record.proposal_at = None
         record.modified_at = datetime.utcnow()
         session.add(record)
         _replace_shape(session, record, body)

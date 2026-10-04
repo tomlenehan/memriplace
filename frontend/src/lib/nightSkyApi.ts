@@ -16,12 +16,15 @@ export type Constellation = {
   title: string
   overview: string
   source_hash: string | null
+  proposal_text: string | null
+  proposal_source_hash: string | null
   created_at: string
   modified_at: string
   publication_id: number | null
   members: Member[]
   links: { story_a_id: number; story_b_id: number }[]
 }
+export type MemoryConstellationImpact = { id: number; title: string; is_public: boolean }
 export type ConstellationWrite = {
   title: string
   overview: string
@@ -86,6 +89,7 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 export const nightSkyApi = {
   list: () => request<Constellation[]>("/constellations/"),
   get: (id: number) => request<Constellation>(`/constellations/${id}`),
+  memoryConstellations: (storyId: number) => request<MemoryConstellationImpact[]>(`/summaries/${storyId}/constellations`),
   create: (body: ConstellationWrite) => request<Constellation>("/constellations/", { method: "POST", body: JSON.stringify(body) }),
   update: (id: number, body: ConstellationWrite) => request<Constellation>(`/constellations/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (id: number) => request<void>(`/constellations/${id}`, { method: "DELETE" }),
