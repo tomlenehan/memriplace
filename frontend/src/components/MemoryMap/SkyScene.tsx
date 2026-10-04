@@ -1,5 +1,5 @@
 import { Box, Text } from "@chakra-ui/react"
-import { Controls, Handle, Position, ReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react"
+import { Controls, Handle, Position, ReactFlow, useNodesInitialized, useReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react"
 import { useEffect, useState, type CSSProperties } from "react"
 import { FiStar } from "react-icons/fi"
 import "@xyflow/react/dist/style.css"
@@ -30,6 +30,19 @@ function SceneStarNode({ data }: NodeProps<SceneNode>) {
   </div>
 }
 const nodeTypes = { sceneStar: SceneStarNode }
+
+function FitScene({ starCount }: { starCount: number }) {
+  const nodesInitialized = useNodesInitialized()
+  const { fitView } = useReactFlow()
+  useEffect(() => {
+    if (!nodesInitialized || starCount === 0) return
+    const frame = requestAnimationFrame(() => {
+      void fitView({ padding: .32, maxZoom: 1.15 })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [fitView, nodesInitialized, starCount])
+  return null
+}
 
 export default function SkyScene({ stars, links, selected, onSelect, label }: {
   stars: SceneStar[]
@@ -66,12 +79,12 @@ export default function SkyScene({ stars, links, selected, onSelect, label }: {
   }))
   return <Box className="scene-sky" aria-label={label}>
     <Box className="personal-sky-viewport scene-viewport">
-      <ReactFlow key={narrow ? "narrow" : compact ? "compact" : "wide"} nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-        fitView={!compact && stars.length <= 8} fitViewOptions={{ padding: .32, maxZoom: 1.15 }}
+      <ReactFlow key={`${narrow ? "narrow" : compact ? "compact" : "wide"}-${stars.length}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         defaultViewport={compact ? { x: narrow ? 30 : 12, y: 55, zoom: narrow ? .9 : .8 } : { x: 45, y: 50, zoom: 1 }}
         minZoom={.35} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false}
         elementsSelectable={false} panOnDrag zoomOnPinch zoomOnScroll={false}
         zoomOnDoubleClick={false} preventScrolling={false} proOptions={{ hideAttribution: true }}>
+        <FitScene starCount={stars.length} />
         <Controls position={compact ? "top-left" : "bottom-right"} showInteractive={false} />
       </ReactFlow>
       <Text className="sky-hint">Select a star to read its memory · Drag the sky to explore</Text>

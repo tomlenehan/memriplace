@@ -1,11 +1,12 @@
 import {
   Alert, AlertIcon, Box, Button, Container, Flex, Heading, HStack, IconButton,
-  Image, Input, Spinner, Text, Textarea, useMediaQuery,
+  Image, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter,
+  ModalHeader, ModalOverlay, Spinner, Text, Textarea, useMediaQuery,
 } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { FiArrowLeft, FiChevronDown, FiChevronUp, FiEdit3, FiGlobe, FiLock, FiX } from "react-icons/fi"
+import { FiArrowLeft, FiChevronDown, FiChevronUp, FiEdit3, FiGlobe, FiLock, FiTrash2, FiX } from "react-icons/fi"
 import { PUBLIC_SKY_ENABLED } from "../../../config"
 import SkyScene from "../../../components/MemoryMap/SkyScene"
 import NarrationControl from "../../../components/Common/NarrationControl"
@@ -19,8 +20,10 @@ function ConstellationPage() {
   const { constellationId } = Route.useParams()
   const id = Number(constellationId)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const query = useQuery({ queryKey: ["constellation", id], queryFn: () => nightSkyApi.get(id), enabled: Number.isInteger(id) && id > 0 })
   const [selected, setSelected] = useState<number | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [storyCollapsed, setStoryCollapsed] = useState(false)
   const [editingStory, setEditingStory] = useState(false)
   const [title, setTitle] = useState("")
@@ -30,11 +33,32 @@ function ConstellationPage() {
   const [draftError, setDraftError] = useState("")
   const [wideReader] = useMediaQuery("(min-width: 900px)")
 
+  const deleteConstellation = useMutation({
+    mutationFn: () => nightSkyApi.remove(id),
+    onSuccess: async () => {
+      queryClient.removeQueries({ queryKey: ["constellation", id], exact: true })
+      queryClient.removeQueries({ queryKey: ["constellationOverviewProposal", id], exact: true })
+      queryClient.removeQueries({ queryKey: ["constellationOverviewProposalError", id], exact: true })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["constellations"] }),
+        queryClient.invalidateQueries({ queryKey: ["publicSky"] }),
+        queryClient.invalidateQueries({ queryKey: ["publicConstellation", id] }),
+      ])
+      setDeleteConfirmOpen(false)
+      await navigate({ to: "/conversations", search: { mode: "constellations" } })
+    },
+  })
+
   useEffect(() => {
     if (!query.data || query.data.id !== id) return
     setTitle(query.data.title)
-    const proposal = !query.data.overview
+    const cachedProposal = !query.data.overview
       ? queryClient.getQueryData<{ overview: string; source_hash: string }>(["constellationOverviewProposal", id])
+      : undefined
+    const proposal = !query.data.overview
+      ? query.data.proposal_text && query.data.proposal_source_hash
+        ? { overview: query.data.proposal_text, source_hash: query.data.proposal_source_hash }
+        : cachedProposal
       : undefined
     if (query.data.overview) {
       setOverview(query.data.overview)
@@ -57,7 +81,16 @@ function ConstellationPage() {
     }
     const proposalError = queryClient.getQueryData<string>(["constellationOverviewProposalError", id])
     if (proposalError) setDraftError(proposalError)
-  }, [query.data?.id, queryClient, id])
+  }, [
+    query.data?.id,
+    query.data?.title,
+    query.data?.overview,
+    query.data?.source_hash,
+    query.data?.proposal_text,
+    query.data?.proposal_source_hash,
+    queryClient,
+    id,
+  ])
 
   const proposeStory = useMutation({
     mutationFn: () => nightSkyApi.proposeOverview(id),
@@ -180,10 +213,13 @@ function ConstellationPage() {
         <Input value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} aria-label="Constellation name" />
         <Flex align="center" justify="space-between" flexWrap="wrap" gap={2} mt={4} mb={2}>
           <Text fontSize="sm" fontWeight="700">Story</Text>
-          <HStack><Button size="sm" variant="outline" onClick={() => proposeStory.mutate()}
-            isLoading={proposeStory.isPending} loadingText="Drafting story">
-            {overview.trim() ? "Suggest another draft" : "Draft with AI"}
-          </Button><ReadingTextSizeControl /></HStack>
+          <HStack>
+            {!overview.trim() && <Button size="sm" variant="outline" onClick={() => proposeStory.mutate()}
+              isLoading={proposeStory.isPending} loadingText="Drafting story">
+              Draft with AI
+            </Button>}
+            <ReadingTextSizeControl />
+          </HStack>
         </Flex>
         {isAiDraft && <Alert status="info" borderRadius="lg" mb={3}><AlertIcon />AI-drafted from these memories. Review and edit it for accuracy before saving.</Alert>}
         <Textarea value={overview} minH={{ base: "220px", md: "280px" }} maxLength={12000} lineHeight="1.8"
@@ -217,6 +253,14 @@ function ConstellationPage() {
       {makePublic.isError && <Text color="red.600" role="alert" mt={3}>{String(makePublic.error)}</Text>}
       {makePrivate.isSuccess && <Text color="#39725C" role="status" mt={3}>This constellation is now private and no longer appears in the Global Night Sky.</Text>}
       {makePublic.isSuccess && <Text color="#39725C" role="status" mt={3}>This constellation is now public in the Global Night Sky.</Text>}
+      <Box mt={6} pt={4} borderTop="1px solid #E2E9DB">
+        <Button variant="outline" colorScheme="red" leftIcon={<FiTrash2 />} onClick={() => {
+          deleteConstellation.reset()
+          setDeleteConfirmOpen(true)
+        }}>
+          Delete constellation
+        </Button>
+      </Box>
     </Box>
 
     <Flex className="public-constellation-sky-row" direction={wideReader ? "row" : "column"} gap={0} mt={4} align="stretch">
@@ -236,5 +280,24 @@ function ConstellationPage() {
         {member.image_url && <Image src={member.image_url} alt={member.title} mt={4} borderRadius="lg" maxH="230px" objectFit="cover" />}
       </Box>}
     </Flex>
+    <Modal isOpen={deleteConfirmOpen} onClose={() => { if (!deleteConstellation.isPending) setDeleteConfirmOpen(false) }} isCentered>
+      <ModalOverlay />
+      <ModalContent borderRadius="20px" mx={4}>
+        <ModalHeader>Delete this constellation?</ModalHeader>
+        <ModalCloseButton isDisabled={deleteConstellation.isPending} />
+        <ModalBody>
+          <Text><strong>{constellation.title}</strong> and its connections will be deleted. The individual memories will remain in My Night Sky.</Text>
+          {constellation.publication_id != null && <Text color="#8D5B22" mt={3}>Its Global Night Sky page will also be removed.</Text>}
+          <Alert status="warning" borderRadius="lg" mt={4}><AlertIcon />This can’t be undone.</Alert>
+          {deleteConstellation.isError && <Text role="alert" color="red.600" mt={3}>{String(deleteConstellation.error)}</Text>}
+        </ModalBody>
+        <ModalFooter gap={2}>
+          <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} isDisabled={deleteConstellation.isPending}>Keep constellation</Button>
+          <Button colorScheme="red" onClick={() => deleteConstellation.mutate()} isLoading={deleteConstellation.isPending} loadingText="Deleting">
+            Delete constellation
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   </Container>
 }

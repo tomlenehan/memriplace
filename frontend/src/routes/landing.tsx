@@ -24,6 +24,7 @@ import {
   FiBookOpen,
   FiCheck,
   FiGitBranch,
+  FiGlobe,
   FiLogIn,
   FiLock,
   FiMic,
@@ -36,6 +37,7 @@ import background from "../assets/images/homepage_parallax_flat/background.png"
 import foreground from "../assets/images/homepage_parallax_flat/foreground3.png"
 import midground from "../assets/images/homepage_parallax_flat/midground.png"
 import starscape from "../assets/images/homepage_parallax_flat/starscape.png"
+import sharedConstellationSky from "../assets/images/step3.webp"
 import AuthModal from "../components/Auth/AuthModal"
 import ConstellationStar from "../components/Common/ConstellationStar"
 import HomepageVoiceSample from "../components/Landing/HomepageVoiceSample"
@@ -491,7 +493,7 @@ export function LandingPage({
                     to="/signup"
                     variant="accent"
                   >
-                    Light your first star
+                    Start a memory
                   </Button>
                   <Button
                     as="a"
@@ -691,7 +693,7 @@ export function LandingPage({
                 <Icon as={FiSun} color="#A87930" mt={1} boxSize={5} />
                 <Text color="#617569" lineHeight="1.8">
                   Save your memories in consecutive days to build a streak. Or take
-                  just your time.
+                  your time.
                 </Text>
               </HStack>
             </Stack>
@@ -795,67 +797,130 @@ export function LandingPage({
           px={{ base: 5, md: 8 }}
           pb={{ base: 16, md: 24 }}
         >
-          <Flex
-            bg="#EEEAF3"
-            border="1px solid #E0D9E8"
-            borderRadius="30px"
-            p={{ base: 6, md: 10 }}
-            direction={{ base: "column", md: "row" }}
-            gap={{ base: 5, md: 8 }}
-            align={{ base: "start", md: "center" }}
+          <SimpleGrid
+            columns={{ base: 1, md: 2 }}
+            gap={{ base: 5, md: 6 }}
+            alignItems="stretch"
           >
             <Flex
-              aria-hidden="true"
-              boxSize={{ base: "64px", md: "100px" }}
-              flexShrink={0}
-              bg="#FAF8FD"
-              border="2px solid white"
-              boxShadow="0 5px 0 #DDD4E7"
-              borderRadius="28px"
-              align="center"
-              justify="center"
-              transform="rotate(-5deg)"
+              bg="#EEEAF3"
+              border="1px solid #E0D9E8"
+              borderRadius="30px"
+              p={{ base: 6, md: 8 }}
+              direction="column"
+              justify="space-between"
+              minH={{ md: "380px" }}
             >
-              <Icon as={FiLock} boxSize={{ base: 7, md: 10 }} color="#7E6D94" />
+              <Flex
+                aria-hidden="true"
+                boxSize={{ base: "64px", md: "76px" }}
+                flexShrink={0}
+                bg="#FAF8FD"
+                border="2px solid white"
+                boxShadow="0 5px 0 #DDD4E7"
+                borderRadius="24px"
+                align="center"
+                justify="center"
+                transform="rotate(-5deg)"
+              >
+                <Icon as={FiLock} boxSize={{ base: 7, md: 8 }} color="#7E6D94" />
+              </Flex>
+              <Stack spacing={3} mt={{ base: 8, md: 10 }}>
+                <Text color="#7E6D94" fontWeight="800" fontSize="sm">
+                  PRIVATE BY DEFAULT
+                </Text>
+                <Heading
+                  as="h2"
+                  fontSize={{ base: "32px", md: "36px" }}
+                  lineHeight="1.1"
+                  sx={storybookHeading}
+                >
+                  Your Night Sky is yours.
+                </Heading>
+                <Text
+                  color="#646071"
+                  fontSize={{ base: "md", md: "lg" }}
+                  lineHeight="1.8"
+                >
+                  Your memories start private. Nothing is
+                  shared automatically.
+                </Text>
+              </Stack>
             </Flex>
-            <Stack spacing={3} maxW="750px">
-              <Text color="#7E6D94" fontWeight="800" fontSize="sm">
-                PERSONAL MEANS PERSONAL
-              </Text>
-              <Heading
-                as="h2"
-                fontSize={{ base: "32px", md: "44px" }}
-                lineHeight="1.1"
-                sx={storybookHeading}
+
+            <Box
+              position="relative"
+              overflow="hidden"
+              border="1px solid #1B3B49"
+              borderRadius="30px"
+              bg="#102E3A"
+              color="#FFF8E8"
+              minH={{ base: "420px", md: "380px" }}
+              isolation="isolate"
+            >
+              <Image
+                src={sharedConstellationSky}
+                alt="One bright constellation among other stories in the Global Night Sky"
+                position="absolute"
+                inset={0}
+                zIndex={-2}
+                w="100%"
+                h="100%"
+                objectFit="cover"
+                objectPosition="center"
+              />
+              <Box
+                aria-hidden="true"
+                position="absolute"
+                inset={0}
+                zIndex={-1}
+                bgGradient="linear(to-b, rgba(8, 31, 40, 0.18) 0%, rgba(8, 31, 40, 0.2) 34%, rgba(8, 31, 40, 0.94) 100%)"
+              />
+              <Flex
+                position="relative"
+                minH={{ base: "420px", md: "380px" }}
+                direction="column"
+                justify="space-between"
+                p={{ base: 6, md: 8 }}
               >
-                Your night sky stays private.
-                <br />
-                {PUBLIC_SKY_ENABLED
-                  ? "Share a constellation when you choose."
-                  : "Every constellation starts there."}
-              </Heading>
-              <Text
-                color="#646071"
-                fontSize={{ base: "md", md: "lg" }}
-                lineHeight="1.8"
-              >
-                {PUBLIC_SKY_ENABLED ? (
-                  <>
-                    Nothing is posted automatically. Before publishing a
-                    constellation, you can preview it and choose which story
-                    texts and images readers can open. The rest of your sky
-                    stays yours.
-                  </>
-                ) : (
-                  <>
-                    Nothing is posted to a public feed. Share an individual
-                    story with someone you love without opening the rest of your
-                    night sky.
-                  </>
-                )}
-              </Text>
-            </Stack>
-          </Flex>
+                <HStack
+                  align="center"
+                  alignSelf="start"
+                  bg="rgba(8, 31, 40, 0.72)"
+                  border="1px solid rgba(255, 248, 232, 0.38)"
+                  borderRadius="full"
+                  px={4}
+                  py={2}
+                  spacing={2}
+                >
+                  <Icon as={FiGlobe} aria-hidden="true" />
+                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.12em">
+                    GLOBAL NIGHT SKY
+                  </Text>
+                </HStack>
+                <Stack spacing={3} maxW="520px" mt={10}>
+                  <Text color="#F4D98D" fontWeight="800" fontSize="sm">
+                    {PUBLIC_SKY_ENABLED ? "SHARED BY CHOICE" : "COMING SOON"}
+                  </Text>
+                  <Heading
+                    as="h3"
+                    fontSize={{ base: "30px", md: "36px" }}
+                    lineHeight="1.1"
+                    sx={storybookHeading}
+                  >
+                    {PUBLIC_SKY_ENABLED
+                      ? "Share one constellation when you’re ready."
+                      : "Your sky stays private while sharing is on its way."}
+                  </Heading>
+                  <Text color="rgba(255, 248, 232, 0.9)" lineHeight="1.7">
+                    {PUBLIC_SKY_ENABLED
+                      ? "Preview it before publishing. Choose which stories and images readers can open. Your original conversations and voice transcripts stay private."
+                      : "When public sharing is available, you’ll be able to preview a constellation and choose which stories and images readers can open."}
+                  </Text>
+                </Stack>
+              </Flex>
+            </Box>
+          </SimpleGrid>
         </Box>
 
         <Box

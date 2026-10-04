@@ -16,6 +16,8 @@ export type Constellation = {
   title: string
   overview: string
   source_hash: string | null
+  proposal_text: string | null
+  proposal_source_hash: string | null
   created_at: string
   modified_at: string
   publication_id: number | null
