@@ -109,11 +109,12 @@ function layout(items: SkyItem[], compact: boolean, narrow: boolean, group?: Con
   }]))
 }
 
-export default function ConstellationMap({ stories, unfinishedStories = [], conversations = [], groups = [], mode, crafting, onCraftingChange, focusedGroupId, onFocusedGroupChange, onStartMemory, toolbar, headerActions, listContent }: {
+export default function ConstellationMap({ stories, unfinishedStories = [], conversations = [], groups = [], groupsLoaded = true, mode, crafting, onCraftingChange, focusedGroupId, onFocusedGroupChange, onStartMemory, toolbar, headerActions, listContent }: {
   stories: StorySummaryPublic[]
   unfinishedStories?: ConversationPublic[]
   conversations?: ConversationPublic[]
   groups?: Constellation[]
+  groupsLoaded?: boolean
   mode: "memories" | "constellations"
   crafting: boolean
   onCraftingChange: (crafting: boolean) => void
@@ -164,7 +165,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
   }
   const focusedGroup = mode === "constellations" ? groups.find((group) => group.id === focusedGroupId) : undefined
   const allConstellationsSelected = mode === "constellations" && focusedGroupId === null
-  const constellationConnectionsVisible = mode === "constellations" && focusedGroupId !== NO_CONSTELLATION_SELECTION
+  const constellationConnectionsVisible = mode === "constellations" && !crafting && focusedGroupId !== NO_CONSTELLATION_SELECTION
   const visibleStories = useMemo(() => focusedGroup
     && !crafting
     ? stories.filter((story) => focusedGroup.members.some((member) => member.story_id === story.id))
@@ -274,7 +275,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
   }
   const nodes: Array<StarNode | UnfinishedStoryNode | StarterNode> = [
     ...visibleStories.map((story, i): StarNode => {
-    const owningGroup = mode === "constellations" && (focusedGroup ?? (allConstellationsSelected
+    const owningGroup = !crafting && mode === "constellations" && (focusedGroup ?? (allConstellationsSelected
       ? groups.find((group) => group.members.some((member) => member.story_id === story.id))
       : undefined))
     return {
@@ -357,6 +358,21 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
     <Button as={Link} to="/constellation/$constellationId" params={{ constellationId: String(focusedGroup.id) }}
       className="sky-group-edit" variant="outline" leftIcon={<FiEdit3 />} mt="auto">Edit or share</Button>
   </Box>
+  const emptyConstellationPanel = mode === "constellations" && groupsLoaded && groups.length === 0 && stories.length < 2 && !crafting && <Box as="aside" className="sky-story-panel sky-group-panel" aria-label="Create your first constellation">
+    <Text className="sky-story-count">YOUR CONSTELLATIONS</Text>
+    <Box className="sky-group-panel-symbol" style={{ "--group-color": "#f8d881" } as CSSProperties}>
+      <FiStar aria-hidden="true" />
+    </Box>
+    <Heading className="sky-story-title" fontFamily={'"Iowan Old Style", Georgia, serif'} size="md" mt={4}>Two memories make a constellation</Heading>
+    <Text className="sky-group-panel-overview" mt={3}>
+      {stories.length === 0
+        ? "Save two memories to create your first constellation. Your memories will appear here as stars."
+        : "You have one saved memory. Add another, then connect the moments that belong together."}
+    </Text>
+    <Button className="sky-group-edit" variant="accent" leftIcon={<FiArrowRight />} w="full" mt="auto" onClick={onStartMemory}>
+      Add a memory
+    </Button>
+  </Box>
   const memoryPanel = selected && !crafting && <Box as="aside" className="sky-story-panel" aria-label="Selected memory" aria-live="polite">
     <Flex align="center" justify="space-between" gap={2}>
       <Text className="sky-story-count">Memory {selectedIndex + 1} of {visibleStories.length}</Text>
@@ -434,7 +450,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
         {toolbar}
       </Box>
       {listContent ? <Box className="sky-list-content">{listContent}</Box> : <>
-      {mode === "constellations" && groups.length > 0 && <Box className="sky-constellation-bar">
+      {mode === "constellations" && !crafting && groups.length > 0 && <Box className="sky-constellation-bar">
         <Text className="sky-constellation-label">Saved constellations</Text>
         <Select className="sky-constellation-select" aria-label="Saved constellations" display={{ base: "block", md: "none" }}
           style={{ "--group-color": focusedGroup ? groupColor(focusedGroup.id) : "#b6d8c7" } as CSSProperties}
@@ -492,11 +508,12 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
             <Controls position={compact ? "top-left" : "bottom-right"} showInteractive={false} />
           </ReactFlow>
         </Box>
+        {wideReader && emptyConstellationPanel}
         {wideReader && memoryPanel}
         {wideReader && unfinishedPanel}
         {wideReader && groupPanel}
       </Flex>
-      {!wideReader && (memoryPanel || unfinishedPanel || groupPanel)}
+      {!wideReader && (emptyConstellationPanel || memoryPanel || unfinishedPanel || groupPanel)}
       </>}
     </Box>
 
