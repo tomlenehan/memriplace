@@ -2,6 +2,7 @@ import { Box, Flex, HStack, Icon, Text, VStack, useColorModeValue } from "@chakr
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useRef } from "react";
 import { FiHeart, FiUser } from "react-icons/fi";
+import { useReadingTextSize } from "../Common/ReadingTextSize";
 import { fetchMessages, clearMessages } from "../../redux/chatSlice";
 import { RootState, AppDispatch } from "../../redux/store";
 
@@ -20,6 +21,7 @@ const ChatMessages = ({ conversationId }: ChatMessagesProps) => {
   const previousMessageCountRef = useRef(0);
   const bgColor = useColorModeValue("#FBF9F1", "ui.dark");
   const textColor = useColorModeValue("#17353B", "ui.light");
+  const { scale } = useReadingTextSize();
 
   useEffect(() => {
     dispatch(clearMessages());
@@ -59,7 +61,7 @@ const ChatMessages = ({ conversationId }: ChatMessagesProps) => {
       px={{ base: 4, md: 7 }}
       py={{ base: 5, md: 7 }}
       bg={bgColor}
-      height="100%"
+      minH={0}
       onScroll={(event) => {
         const container = event.currentTarget;
         stickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
@@ -95,7 +97,8 @@ const ChatMessages = ({ conversationId }: ChatMessagesProps) => {
                     </Text>
                   )}
                 </HStack>
-                <Text whiteSpace="pre-wrap" lineHeight="1.7" fontSize="sm" aria-live={isStreaming ? "polite" : undefined}>
+                <Text whiteSpace="pre-wrap" lineHeight="1.7" fontSize="sm"
+                  style={{ fontSize: `calc(0.875rem * ${scale})` }} aria-live={isStreaming ? "polite" : undefined}>
                   {message.content || (isStreaming && message.sender_type === "user" ? "Listening…" : "")}
                 </Text>
               </Box>

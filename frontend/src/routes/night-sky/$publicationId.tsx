@@ -129,7 +129,7 @@ function PublicConstellationPage() {
           </Flex>
           {!storyCollapsed && constellation.overview && <Box mt={4}>
             <NarrationControl path={`public/${id}`} publicStory displayText={constellation.overview}
-              spokenTitle={constellation.title} displayTextLines={5} />
+              spokenTitle={constellation.title} displayTextLines={5} showTextSizeControl />
           </Box>}
           <Flex mt={4} align={{ base: "stretch", sm: "center" }} justify="space-between" gap={4} direction={{ base: "column", sm: "row" }}>
             <HStack spacing={{ base: 2, sm: 3 }} flexWrap="wrap">
@@ -164,7 +164,7 @@ function PublicConstellationPage() {
               <IconButton aria-label="Close memory" icon={<FiX />} variant="ghost" size="sm" onClick={() => setSelected(null)} />
             </Flex>
             {star.story_text && <Box mt={4}><NarrationControl path={`public/${id}/memories/${star.index}`} publicStory
-              displayText={star.story_text} spokenTitle={star.title} /></Box>}
+              displayText={star.story_text} spokenTitle={star.title} showTextSizeControl /></Box>}
             {!star.story_text &&
               <Text color="ui.muted" mt={3}>This storyteller kept the memory itself private. Its star still belongs to the shared shape.</Text>}
             {star.image_url && <Image src={star.image_url} alt={star.title} mt={4} borderRadius="lg" maxH="230px" objectFit="cover" />}

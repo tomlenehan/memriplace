@@ -9,11 +9,13 @@ import { FiArrowLeft, FiChevronDown, FiChevronUp, FiEdit3, FiGlobe, FiLock, FiX 
 import { PUBLIC_SKY_ENABLED } from "../../../config"
 import SkyScene from "../../../components/MemoryMap/SkyScene"
 import NarrationControl from "../../../components/Common/NarrationControl"
+import { ReadingTextSizeControl, useReadingTextSize } from "../../../components/Common/ReadingTextSize"
 import { nightSkyApi } from "../../../lib/nightSkyApi"
 
 export const Route = createFileRoute("/_layout/constellation/$constellationId")({ component: ConstellationPage })
 
 function ConstellationPage() {
+  const { scale } = useReadingTextSize()
   const { constellationId } = Route.useParams()
   const id = Number(constellationId)
   const queryClient = useQueryClient()
@@ -129,8 +131,12 @@ function ConstellationPage() {
       {editingStory ? <Box mt={5}>
         <Text fontSize="sm" fontWeight="700" mb={2}>Constellation name</Text>
         <Input value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} aria-label="Constellation name" />
-        <Text fontSize="sm" fontWeight="700" mt={4} mb={2}>Story</Text>
+        <Flex align="center" justify="space-between" flexWrap="wrap" gap={2} mt={4} mb={2}>
+          <Text fontSize="sm" fontWeight="700">Story</Text>
+          <ReadingTextSizeControl />
+        </Flex>
         <Textarea value={overview} minH={{ base: "220px", md: "280px" }} maxLength={12000} lineHeight="1.8"
+          style={{ fontSize: `calc(1rem * ${scale})` }}
           onChange={(event) => setOverview(event.target.value)} aria-label="Constellation story" />
         <HStack mt={4} flexWrap="wrap">
           <Button variant="primary" onClick={() => saveStory.mutate()} isLoading={saveStory.isPending} isDisabled={!title.trim() || !overview.trim()}>
@@ -140,7 +146,8 @@ function ConstellationPage() {
         </HStack>
         {saveStory.isError && <Text color="red.600" role="alert" mt={3}>{String(saveStory.error)}</Text>}
       </Box> : !storyCollapsed && <Box className="constellation-story-scroll" mt={4}>
-        <NarrationControl path={`constellations/${id}`} displayText={constellation.overview} spokenTitle={constellation.title} />
+        <NarrationControl path={`constellations/${id}`} displayText={constellation.overview}
+          spokenTitle={constellation.title} showTextSizeControl />
       </Box>}
       {makePrivate.isError && <Text color="red.600" role="alert" mt={3}>{String(makePrivate.error)}</Text>}
       {makePublic.isError && <Text color="red.600" role="alert" mt={3}>{String(makePublic.error)}</Text>}
@@ -160,8 +167,8 @@ function ConstellationPage() {
           <Heading className="sky-story-title" fontFamily={'"Iowan Old Style", Georgia, serif'} size="md">{member.title}</Heading>
           <IconButton aria-label="Close memory" icon={<FiX />} variant="ghost" size="sm" onClick={() => setSelected(null)} />
         </Flex>
-        <Box mt={4}><NarrationControl path={`memories/${member.story_id}`} /></Box>
-        <Text className="sky-story-text" mt={5} lineHeight="1.8" whiteSpace="pre-wrap">{member.summary_text}</Text>
+        <Box mt={4}><NarrationControl path={`memories/${member.story_id}`} displayText={member.summary_text}
+          spokenTitle={member.title || "A remembered moment"} showTextSizeControl displayTextClassName="sky-story-text" /></Box>
         {member.image_url && <Image src={member.image_url} alt={member.title} mt={4} borderRadius="lg" maxH="230px" objectFit="cover" />}
       </Box>}
     </Flex>

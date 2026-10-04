@@ -2,12 +2,13 @@ import { Button, HStack, IconButton, Text, Tooltip } from "@chakra-ui/react"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { FiInfo, FiPause, FiPlay, FiSquare } from "react-icons/fi"
 import { API_BASE_URL } from "../../config"
+import { ReadingTextSizeControl, useReadingTextSize } from "./ReadingTextSize"
 
 let stopOtherNarration: (() => void) | null = null
 const PCM_SAMPLE_RATE = 24_000
 const MIN_INITIAL_BUFFER_BYTES = Math.round(PCM_SAMPLE_RATE * 2 * 0.35)
 const WORDS_PER_MINUTE = 150
-const SENTENCE_HIGHLIGHT_DELAY_SECONDS = .2
+const SENTENCE_HIGHLIGHT_DELAY_SECONDS = 0
 
 type SentenceTiming = { index: number; start: number; end: number }
 type NarrationPacket = { type: number; payload: Uint8Array }
@@ -46,13 +47,15 @@ function scrollIntoViewIfNeeded(element: HTMLElement | null) {
   element.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest", inline: "nearest" })
 }
 
-export default function NarrationControl({ path, publicStory = false, displayText, spokenTitle, displaySentenceOffset = 0, displayTextLines }: {
+export default function NarrationControl({ path, publicStory = false, displayText, spokenTitle, displaySentenceOffset = 0, displayTextLines, showTextSizeControl = false, displayTextClassName }: {
   path: string
   publicStory?: boolean
   displayText?: string
   spokenTitle?: string
   displaySentenceOffset?: number
   displayTextLines?: number
+  showTextSizeControl?: boolean
+  displayTextClassName?: string
 }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "playing" | "paused">("idle")
   const [error, setError] = useState("")
@@ -67,6 +70,7 @@ export default function NarrationControl({ path, publicStory = false, displayTex
   const activeSentenceElement = useRef<HTMLSpanElement | null>(null)
   const firstSentenceElement = useRef<HTMLSpanElement | null>(null)
   const [activeSentence, setActiveSentence] = useState<number | null>(null)
+  const { scale } = useReadingTextSize()
   const titleSentenceOffset = spokenTitle === undefined
     ? displaySentenceOffset
     : splitSentences(`${spokenTitle}.`).length
@@ -338,20 +342,21 @@ export default function NarrationControl({ path, publicStory = false, displayTex
     <HStack spacing={2} flexWrap="wrap">
       <HStack spacing={2} flexWrap="nowrap" flexShrink={0}>
         <Button type="button" size="md" variant="secondary" leftIcon={phase === "playing" ? <FiPause /> : <FiPlay />}
-          onClick={handleListen} isLoading={phase === "loading"} loadingText="Preparing voice" minH="48px" fontWeight="750">
+          onClick={handleListen} isLoading={phase === "loading"} loadingText="Preparing voice" minH="48px" fontWeight="750" whiteSpace="nowrap">
           {phase === "playing" ? "Pause" : phase === "paused" ? "Resume" : "Listen"}
         </Button>
-        <Tooltip label="AI-generated voice" hasArrow>
-          <IconButton aria-label="About the AI-generated voice" icon={<FiInfo />} variant="ghost" size="sm" minH="40px"
-            _hover={{ bg: "transparent" }} />
-        </Tooltip>
+        {phase !== "idle" && <Button type="button" size="sm" variant="ghost" leftIcon={<FiSquare />}
+          onClick={stop} minH="44px" whiteSpace="nowrap">Stop</Button>}
       </HStack>
-      {phase !== "idle" && <Button type="button" size="sm" variant="ghost" leftIcon={<FiSquare />}
-        onClick={stop} minH="44px">Stop</Button>}
+      <Tooltip label="AI-generated voice" hasArrow>
+        <IconButton aria-label="About the AI-generated voice" icon={<FiInfo />} variant="ghost" size="sm" minH="40px"
+          _hover={{ bg: "transparent" }} />
+      </Tooltip>
+      {showTextSizeControl && <ReadingTextSizeControl />}
     </HStack>
     {error && <Text role="alert" color="red.600" fontSize="sm" mt={2}>{error}</Text>}
     {displayText && <>
-      <Text id={storyTextId} mt={4} whiteSpace="pre-wrap" lineHeight="1.8"
+      <Text id={storyTextId} className={displayTextClassName} mt={4} whiteSpace="pre-wrap" lineHeight="1.8" style={{ fontSize: `calc(1em * ${scale})` }}
         noOfLines={displayTextLines && !isExpanded ? displayTextLines : undefined} aria-live="off">
         {splitSentences(displayText).map((sentence, index, sentences) => {
           const isActive = activeSentence === index + titleSentenceOffset
