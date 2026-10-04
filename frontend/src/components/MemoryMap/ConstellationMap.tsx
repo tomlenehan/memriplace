@@ -65,6 +65,7 @@ function UnfinishedStory({ data }: NodeProps<UnfinishedStoryNode>) {
     : data.conversation.status === "ready_for_summary"
       ? turnCount >= MAX_NODE_USER_TURNS ? "COMPLETE" : "READY TO SAVE"
       : "IN PROGRESS"
+  const showProgressEllipsis = !data.suggested && data.conversation.status === "active"
   return <div className={`sky-node sky-unfinished-node sky-unfinished-node--${data.suggested ? "suggested" : "progress"} ${data.active ? "active" : ""}`}>
     {/* Keep the same restrained selection treatment for unfinished and suggested stars. */}
     <Handle type="target" position={Position.Left} className="sky-node-handle" />
@@ -73,7 +74,10 @@ function UnfinishedStory({ data }: NodeProps<UnfinishedStoryNode>) {
       aria-pressed={data.active} onClick={() => data.onChoose(data.conversation.id)} title={title}>
       <span className="sky-node-button">
         <FiStar aria-hidden="true" />
-        <span className="sky-unfinished-node-icon" aria-hidden="true">{data.suggested ? <FiStar /> : <FiBookOpen />}</span>
+        <span className={`sky-unfinished-node-icon ${showProgressEllipsis ? "sky-unfinished-node-icon--in-progress" : ""}`} aria-hidden="true">
+          {data.suggested ? <FiStar /> : <FiBookOpen />}
+          {showProgressEllipsis && <span className="sky-unfinished-node-more">…</span>}
+        </span>
       </span>
       <span className="sky-node-title"><span className="sky-unfinished-node-kicker">{statusLabel}</span>{title}</span>
     </button>
@@ -109,12 +113,11 @@ function layout(items: SkyItem[], compact: boolean, narrow: boolean, group?: Con
   }]))
 }
 
-export default function ConstellationMap({ stories, unfinishedStories = [], conversations = [], groups = [], groupsLoaded = true, mode, crafting, onCraftingChange, focusedGroupId, onFocusedGroupChange, onStartMemory, toolbar, headerActions, listContent }: {
+export default function ConstellationMap({ stories, unfinishedStories = [], conversations = [], groups = [], mode, crafting, onCraftingChange, focusedGroupId, onFocusedGroupChange, onStartMemory, toolbar, headerActions, listContent }: {
   stories: StorySummaryPublic[]
   unfinishedStories?: ConversationPublic[]
   conversations?: ConversationPublic[]
   groups?: Constellation[]
-  groupsLoaded?: boolean
   mode: "memories" | "constellations"
   crafting: boolean
   onCraftingChange: (crafting: boolean) => void
@@ -223,15 +226,17 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
   }, [wideReader, selectedId, crafting, selectedIndex, visibleStories])
   const guidance = crafting
     ? picked.length === 0
-      ? "Choose any saved memory, even one not yet in a constellation. We’ll suggest memories that may belong with it."
+      ? "Choose saved memories to connect. We’ll suggest memories that may belong together."
       : picked.length === 1
-        ? "Dotted paths are AI suggestions. Tap one to see why it fits."
+        ? "Choose another memory to connect it. Tap a selected star again to remove it."
         : `${picked.length} stars chosen. Add more, or name your constellation.`
     : mode === "memories" ? "Select a star to read, continue, or start a memory."
       : focusedGroup ? `${focusedGroup.members.length} connected memories. Select a star to read it.`
         : focusedGroupId === NO_CONSTELLATION_SELECTION ? "Constellation connections are hidden. Select a constellation to explore it."
           : groups.length ? "Choose a constellation to see its story, or select a star to read a memory."
-          : "Create your first constellation by connecting two memories."
+          : stories.length === 0
+            ? "Save two memories to start a constellation. In-progress stories appear here once saved."
+            : "You have one saved memory. Finish and save another story to create a constellation."
   const positions = useMemo(() => layout(skyItems, compact, narrow, crafting ? undefined : focusedGroup), [skyItems, compact, narrow, focusedGroup, crafting])
   const create = useMutation({
     mutationFn: async () => {
@@ -263,7 +268,10 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
     },
   })
   const choose = (id: number) => {
-    if (crafting) setPicked((old) => old.includes(id) ? old.filter((item) => item !== id) : [...old, id])
+    if (crafting) {
+      setPicked((old) => old.includes(id) ? old.filter((item) => item !== id) : [...old, id])
+      setSelectedId(id)
+    }
     else {
       setSelectedUnfinishedId(null)
       setSelectedId(id)
@@ -358,22 +366,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
     <Button as={Link} to="/constellation/$constellationId" params={{ constellationId: String(focusedGroup.id) }}
       className="sky-group-edit" variant="outline" leftIcon={<FiEdit3 />} mt="auto">Edit or share</Button>
   </Box>
-  const emptyConstellationPanel = mode === "constellations" && groupsLoaded && groups.length === 0 && stories.length < 2 && !crafting && <Box as="aside" className="sky-story-panel sky-group-panel" aria-label="Create your first constellation">
-    <Text className="sky-story-count">YOUR CONSTELLATIONS</Text>
-    <Box className="sky-group-panel-symbol" style={{ "--group-color": "#f8d881" } as CSSProperties}>
-      <FiStar aria-hidden="true" />
-    </Box>
-    <Heading className="sky-story-title" fontFamily={'"Iowan Old Style", Georgia, serif'} size="md" mt={4}>Two memories make a constellation</Heading>
-    <Text className="sky-group-panel-overview" mt={3}>
-      {stories.length === 0
-        ? "Save two memories to create your first constellation. Your memories will appear here as stars."
-        : "You have one saved memory. Add another, then connect the moments that belong together."}
-    </Text>
-    <Button className="sky-group-edit" variant="accent" leftIcon={<FiArrowRight />} w="full" mt="auto" onClick={onStartMemory}>
-      Add a memory
-    </Button>
-  </Box>
-  const memoryPanel = selected && !crafting && <Box as="aside" className="sky-story-panel" aria-label="Selected memory" aria-live="polite">
+  const memoryPanel = selected && <Box as="aside" className="sky-story-panel" aria-label="Selected memory" aria-live="polite">
     <Flex align="center" justify="space-between" gap={2}>
       <Text className="sky-story-count">Memory {selectedIndex + 1} of {visibleStories.length}</Text>
       <IconButton aria-label="Close memory" icon={<FiX />} variant="ghost" onClick={() => setSelectedId(null)} />
@@ -492,10 +485,14 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
             <FiMap aria-hidden="true" /> Map key
           </button>
         </Box>}
-        <Text className="sky-hint" role="status">{crafting ? "Select stars to choose them" : selectedUnfinished ? "Choose another star to explore more" : selected ? "Choose another star to read more" : "Select a star to explore its story"}</Text>
+        <Text className="sky-hint" role="status">{crafting
+          ? picked.length === 0 ? "Select memories to connect them" : `${picked.length} selected · tap another to connect it`
+          : selectedUnfinished ? "Choose another star to explore more" : selected ? "Choose another star to read more" : "Select a star to explore its story"}</Text>
       </Flex>}
       <Flex className="personal-sky-body">
-        <Box className="personal-sky-viewport" aria-label="Your personal night sky. Bright stars are complete memories, softer stars are in progress, and the starter begins a new memory. Drag to move and use the zoom controls to explore."
+        <Box className="personal-sky-viewport" aria-label={mode === "constellations"
+          ? "Your saved memories. Select stars to read them and connect them into constellations. Drag to move and use the zoom controls to explore."
+          : "Your personal night sky. Bright stars are complete memories, softer stars are in progress, and the starter begins a new memory. Drag to move and use the zoom controls to explore."}
           style={compact ? { height: Math.max(600, 180 + Math.ceil(skyItems.length / (narrow ? 1 : 2)) * (narrow ? 175 : 135)) } : undefined}>
           <ReactFlow key={`${narrow ? "narrow" : compact ? "compact" : "wide"}-${focusedGroupId === NO_CONSTELLATION_SELECTION ? "none" : focusedGroup?.id ?? "all"}-${wideReader && (selected || selectedUnfinished || focusedGroup) && !crafting ? "inspecting" : "browsing"}`}
             nodes={nodes} edges={[...suggestedEdges, ...savedEdges, ...draftEdges]} nodeTypes={nodeTypes}
@@ -508,12 +505,11 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
             <Controls position={compact ? "top-left" : "bottom-right"} showInteractive={false} />
           </ReactFlow>
         </Box>
-        {wideReader && emptyConstellationPanel}
         {wideReader && memoryPanel}
         {wideReader && unfinishedPanel}
         {wideReader && groupPanel}
       </Flex>
-      {!wideReader && (emptyConstellationPanel || memoryPanel || unfinishedPanel || groupPanel)}
+      {!wideReader && (memoryPanel || unfinishedPanel || groupPanel)}
       </>}
     </Box>
 
