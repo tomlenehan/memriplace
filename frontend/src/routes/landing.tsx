@@ -479,6 +479,7 @@ export function LandingPage({
                   lineHeight="1.65"
                   maxW="590px"
                 >
+                  Your AI-guided memory journal.
                   Capture the memories that matter, connect the ones that belong
                   together to build a night sky that’s uniquely yours.
                 </Text>
