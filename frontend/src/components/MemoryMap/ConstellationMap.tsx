@@ -166,8 +166,9 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
   const allConstellationsSelected = mode === "constellations" && focusedGroupId === null
   const constellationConnectionsVisible = mode === "constellations" && focusedGroupId !== NO_CONSTELLATION_SELECTION
   const visibleStories = useMemo(() => focusedGroup
+    && !crafting
     ? stories.filter((story) => focusedGroup.members.some((member) => member.story_id === story.id))
-    : stories, [stories, focusedGroup])
+    : stories, [stories, focusedGroup, crafting])
   const visibleUnfinishedStories = mode === "memories" && !crafting ? unfinishedStories : []
   const skyItems = useMemo<SkyItem[]>(() => {
     const items: SkyItem[] = []
@@ -221,7 +222,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
   }, [wideReader, selectedId, crafting, selectedIndex, visibleStories])
   const guidance = crafting
     ? picked.length === 0
-      ? "Choose a star. We’ll show memories that may belong with it."
+      ? "Choose any saved memory, even one not yet in a constellation. We’ll suggest memories that may belong with it."
       : picked.length === 1
         ? "Dotted paths are AI suggestions. Tap one to see why it fits."
         : `${picked.length} stars chosen. Add more, or name your constellation.`
@@ -230,22 +231,34 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
         : focusedGroupId === NO_CONSTELLATION_SELECTION ? "Constellation connections are hidden. Select a constellation to explore it."
           : groups.length ? "Choose a constellation to see its story, or select a star to read a memory."
           : "Create your first constellation by connecting two memories."
-  const positions = useMemo(() => layout(skyItems, compact, narrow, focusedGroup), [skyItems, compact, narrow, focusedGroup])
+  const positions = useMemo(() => layout(skyItems, compact, narrow, crafting ? undefined : focusedGroup), [skyItems, compact, narrow, focusedGroup, crafting])
   const create = useMutation({
-    mutationFn: () => nightSkyApi.create({
-      title: name.trim(), overview: "",
-      members: picked.map((story_id) => ({ story_id, x: null, y: null, share_story: false, share_image: false })),
-      links: picked.slice(1).map((story_b_id, i) => ({ story_a_id: picked[i], story_b_id })),
-    }),
-    onSuccess: async (group) => {
+    mutationFn: async () => {
+      const group = await nightSkyApi.create({
+        title: name.trim(), overview: "",
+        members: picked.map((story_id) => ({ story_id, x: null, y: null, share_story: false, share_image: false })),
+        links: picked.slice(1).map((story_b_id, i) => ({ story_a_id: picked[i], story_b_id })),
+      })
+      try {
+        const proposal = await nightSkyApi.proposeOverview(group.id)
+        return { group, proposal, proposalError: null }
+      } catch (error) {
+        return { group, proposal: null, proposalError: error instanceof Error ? error.message : "Couldn’t draft the constellation story." }
+      }
+    },
+    onSuccess: async ({ group, proposal, proposalError }) => {
       setNaming(false); onCraftingChange(false); setPicked([]); setName("")
       onFocusedGroupChange(group.id)
       queryClient.setQueryData<Constellation[]>(["constellations"], (current = []) => [...current, group])
+      queryClient.setQueryData(["constellation", group.id], group)
+      if (proposal) queryClient.setQueryData(["constellationOverviewProposal", group.id], proposal)
+      if (proposalError) queryClient.setQueryData(["constellationOverviewProposalError", group.id], proposalError)
       celebrateConnection()
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["constellations"] }),
         queryClient.invalidateQueries({ queryKey: ["storyRelationships"] }),
       ])
+      await navigate({ to: "/constellation/$constellationId", params: { constellationId: String(group.id) } })
     },
   })
   const choose = (id: number) => {
@@ -501,12 +514,13 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
       </ModalFooter></ModalContent></Modal>
     <Modal isOpen={naming} onClose={() => setNaming(false)} isCentered><ModalOverlay /><ModalContent borderRadius="26px" mx={4}>
       <ModalHeader>Name your constellation</ModalHeader><ModalCloseButton /><ModalBody>
-        <Text color="#617773" mb={3}>These {picked.length} memories will form a private constellation. You can edit its story next.</Text>
+        <Text color="#617773" mb={3}>These {picked.length} memories will form a private constellation. We’ll draft a story from them for you to review and edit before saving.</Text>
         <Box className="sky-picked-list" mb={4}>{picked.map((id) => <Text key={id} noOfLines={1}>✦ {stories.find((story) => story.id === id)?.title || "A remembered moment"}</Text>)}</Box>
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="A name for these connected moments" maxLength={120} autoFocus />
         {create.isError && <Text color="red.600" role="alert" mt={3}>We couldn’t save this constellation. Please try again.</Text>}
-      </ModalBody><ModalFooter gap={2}><Button variant="ghost" onClick={() => setNaming(false)}>Back</Button>
-        <Button className="sheet-primary" onClick={() => create.mutate()} isLoading={create.isPending} isDisabled={!name.trim()}>Save constellation</Button>
+      </ModalBody><ModalFooter gap={2}><Button variant="ghost" onClick={() => setNaming(false)} isDisabled={create.isPending}>Back</Button>
+        <Button className="sheet-primary" onClick={() => create.mutate()} isLoading={create.isPending}
+          loadingText="Drafting your story" isDisabled={!name.trim()}>Create constellation</Button>
       </ModalFooter></ModalContent></Modal>
   </Stack>
 }

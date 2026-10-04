@@ -33,11 +33,14 @@ from app.llm.utils import MIN_USER_TURNS_BEFORE_SAVE, get_formatted_history
 from app.models import (
     ChatMessage,
     ChatMessageSender,
+    Constellation,
     ConstellationLink,
     ConstellationMemory,
     Conversation,
     ConversationStatus,
     Message,
+    PublishedConstellation,
+    PublishedMemory,
     RelatedStorySuggestion,
     StoryEmbedding,
     StoryRelationship,
@@ -89,6 +92,12 @@ class StoryImageGenerationResponse(BaseModel):
     mime_type: str = "image/png"
 
 
+class StoryConstellationImpact(BaseModel):
+    id: int
+    title: str
+    is_public: bool
+
+
 class SummaryCreateRequest(BaseModel):
     conversation_id: int
     tone: int
@@ -108,6 +117,7 @@ def read_story_summaries(
     statement = (
         select(StorySummary)
         .where(StorySummary.user_id == current_user.id)
+        .order_by(StorySummary.created_at.desc(), StorySummary.id.desc())
         .offset(skip)
         .limit(limit)
     )
@@ -340,6 +350,42 @@ def read_private_story_upload(access_token: str) -> FileResponse:
     return FileResponse(image_path)
 
 
+@router.get("/{id}/constellations", response_model=list[StoryConstellationImpact])
+def read_story_constellation_impacts(
+    id: int,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[StoryConstellationImpact]:
+    summary = session.get(StorySummary, id)
+    if not summary or summary.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    rows = session.exec(
+        select(Constellation, PublishedConstellation.id)
+        .join(
+            ConstellationMemory,
+            ConstellationMemory.constellation_id == Constellation.id,
+        )
+        .outerjoin(
+            PublishedConstellation,
+            PublishedConstellation.constellation_id == Constellation.id,
+        )
+        .where(
+            ConstellationMemory.story_id == id,
+            Constellation.owner_id == current_user.id,
+        )
+        .order_by(Constellation.title)
+    ).all()
+    return [
+        StoryConstellationImpact(
+            id=constellation.id,
+            title=constellation.title,
+            is_public=publication_id is not None,
+        )
+        for constellation, publication_id in rows
+    ]
+
+
 @router.delete("/{id}")
 def delete_story_summary(
     id: int,
@@ -352,23 +398,56 @@ def delete_story_summary(
     summary = session.get(StorySummary, id)
     if not summary:
         raise HTTPException(status_code=404, detail="Story summary not found")
-    conversation = session.get(Conversation, summary.conversation_id)
-    if conversation.user_id != current_user.id:
-        raise HTTPException(status_code=400, detail="Not enough permissions")
+    if summary.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Story not found")
 
-    membership = session.exec(
-        select(ConstellationMemory.id).where(
+    constellations = session.exec(
+        select(Constellation)
+        .join(
+            ConstellationMemory,
+            ConstellationMemory.constellation_id == Constellation.id,
+        )
+        .where(
             ConstellationMemory.story_id == id,
+            Constellation.owner_id == current_user.id,
         )
-    ).first()
-    if membership:
-        raise HTTPException(
-            status_code=409,
-            detail="Remove this memory from its saved constellations before deleting it.",
-        )
+    ).all()
+    constellation_ids = [constellation.id for constellation in constellations]
+    public_image_filenames = (
+        session.exec(
+            select(PublishedMemory.image_filename)
+            .join(
+                PublishedConstellation,
+                PublishedMemory.publication_id == PublishedConstellation.id,
+            )
+            .where(
+                PublishedConstellation.constellation_id.in_(constellation_ids),
+                PublishedMemory.image_filename.is_not(None),
+            )
+        ).all()
+        if constellation_ids
+        else []
+    )
+    private_image_filename = (
+        summary.image_url.removeprefix("disk-private://")
+        if summary.image_url and summary.image_url.startswith("disk-private://")
+        else None
+    )
+    try:
+        for constellation in constellations:
+            session.delete(constellation)
+        session.delete(summary)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
 
-    session.delete(summary)
-    session.commit()
+    uploads = get_local_uploads_directory()
+    for filename in public_image_filenames:
+        if filename and Path(filename).name == filename:
+            (uploads / "public_sky" / filename).unlink(missing_ok=True)
+    if private_image_filename and Path(private_image_filename).name == private_image_filename:
+        (uploads / private_image_filename).unlink(missing_ok=True)
     return Message(message="Story summary deleted successfully")
 
 

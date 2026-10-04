@@ -1,5 +1,8 @@
 import {
   Box,
+  Alert,
+  AlertIcon,
+  Badge,
   Container,
   Flex,
   Heading,
@@ -13,25 +16,33 @@ import {
   Image,
   SimpleGrid,
   VStack,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
 } from "@chakra-ui/react"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { IoChevronBackCircleOutline } from "react-icons/io5"
 import { useEffect, useState } from "react"
 import { FaRegSave } from "react-icons/fa"
 import { useForm, SubmitHandler } from "react-hook-form"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDropzone } from "react-dropzone"
 import {
   SummariesService,
   Body_summaries_update_story_summary,
   type StorySummaryPublic,
 } from "../../../client"
-import { FiCheck, FiGitBranch, FiImage, FiLink, FiShare2 } from "react-icons/fi"
+import { FiCheck, FiGitBranch, FiImage, FiLink, FiShare2, FiTrash2 } from "react-icons/fi"
 import ConstellationStar from "../../../components/Common/ConstellationStar"
 import NarrationControl from "../../../components/Common/NarrationControl"
 import useCustomToast from "../../../hooks/useCustomToast"
 import { API_BASE_URL } from "../../../config"
 import { ReadingTextSizeControl, useReadingTextSize } from "../../../components/Common/ReadingTextSize"
+import { nightSkyApi } from "../../../lib/nightSkyApi"
 
 export const Route = createFileRoute("/_layout/summary/$summaryId")({
   component: SummaryPage,
@@ -74,9 +85,30 @@ function SummaryPage() {
   const [conversationId, setConversationId] = useState<number | undefined>(undefined)
   const [currentStory, setCurrentStory] = useState<StorySummaryPublic | undefined>()
   const [shareFeedback, setShareFeedback] = useState("")
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const showToast = useCustomToast()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const memoryConstellationsQuery = useQuery({
+    queryKey: ["memoryConstellations", Number(summaryId)],
+    queryFn: () => nightSkyApi.memoryConstellations(Number(summaryId)),
+    enabled: Boolean(currentStory),
+  })
+  const deleteMemory = useMutation({
+    mutationFn: () => SummariesService.deleteStorySummary({ id: Number(summaryId) }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["summaries"] }),
+        queryClient.invalidateQueries({ queryKey: ["constellations"] }),
+        queryClient.invalidateQueries({ queryKey: ["storyRelationships"] }),
+        queryClient.invalidateQueries({ queryKey: ["memoryConstellations"] }),
+      ])
+      setDeleteConfirmOpen(false)
+      showToast("Memory deleted", "The memory and its associated constellations were deleted.", "success")
+      await navigate({ to: "/conversations" })
+    },
+    onError: (error) => showToast("Couldn’t delete memory", `${error}`, "error"),
+  })
 
   const { getRootProps, getInputProps, acceptedFiles } = useDropzone({
     accept: { "image/*": [".jpeg", ".jpg", ".png"] },
@@ -472,11 +504,60 @@ function SummaryPage() {
                   Copy link
                 </Button>
                 {shareFeedback && <Text role="status" fontSize="sm" color="ui.muted" mt={3}>{shareFeedback}</Text>}
+                <Box mt={7} pt={4} borderTop="1px solid #E5E8DC">
+                  <Button type="button" variant="outline" colorScheme="red" leftIcon={<Icon as={FiTrash2} />}
+                    onClick={() => {
+                      setDeleteConfirmOpen(true)
+                      void memoryConstellationsQuery.refetch()
+                    }}>
+                    Delete memory
+                  </Button>
+                </Box>
               </form>
             </>
           )}
         </Box>
       </Flex>
+      <Modal isOpen={deleteConfirmOpen} onClose={() => { if (!deleteMemory.isPending) setDeleteConfirmOpen(false) }} isCentered>
+        <ModalOverlay />
+        <ModalContent borderRadius="20px" mx={4}>
+          <ModalHeader>Delete this memory?</ModalHeader>
+          <ModalCloseButton isDisabled={deleteMemory.isPending} />
+          <ModalBody>
+            <Text>
+              “{watch("title") || currentStory?.title || "This memory"}” will be permanently deleted.
+            </Text>
+            {memoryConstellationsQuery.isPending ? <Text color="ui.muted" mt={4}>Checking which constellations include this memory…</Text>
+              : memoryConstellationsQuery.isError ? <Box mt={4}>
+                <Text color="red.600">We couldn’t check which constellations would be affected. Please try again before deleting.</Text>
+                <Button size="sm" mt={2} variant="outline" onClick={() => void memoryConstellationsQuery.refetch()}>Retry</Button>
+              </Box>
+                : memoryConstellationsQuery.data?.length ? <Box mt={4}>
+                  <Text fontWeight="750">These constellations will also be deleted:</Text>
+                  <VStack align="stretch" spacing={2} mt={2}>
+                    {memoryConstellationsQuery.data.map((constellation) => <Flex key={constellation.id} align="center" justify="space-between" gap={3}>
+                      <Text>{constellation.title}</Text>
+                      {constellation.is_public && <Badge colorScheme="orange" flexShrink={0}>Public share</Badge>}
+                    </Flex>)}
+                  </VStack>
+                  <Text color="ui.muted" fontSize="sm" mt={3}>
+                    Their constellation stories and public pages will be removed. The other memories will remain in your night sky.
+                  </Text>
+                </Box> : <Text color="ui.muted" mt={4}>This memory isn’t part of any constellation.</Text>}
+            <Alert status="warning" borderRadius="lg" mt={4}>
+              <AlertIcon />This action can’t be undone.
+            </Alert>
+            {deleteMemory.isError && <Text role="alert" color="red.600" mt={3}>{String(deleteMemory.error)}</Text>}
+          </ModalBody>
+          <ModalFooter gap={2}>
+            <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} isDisabled={deleteMemory.isPending}>Keep memory</Button>
+            <Button colorScheme="red" onClick={() => deleteMemory.mutate()} isLoading={deleteMemory.isPending}
+              loadingText="Deleting" isDisabled={!memoryConstellationsQuery.isSuccess || memoryConstellationsQuery.isFetching}>
+              {memoryConstellationsQuery.data?.length ? "Delete memory and constellations" : "Delete memory"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Container>
   )
 }

@@ -47,6 +47,16 @@ const ink = "#17353B"
 const muted = "#61777A"
 const paper = "#FFFDF5"
 const accents = ["#D88B4A", "#4B8D82", "#9A78AA", "#CE7667", "#638CAA"]
+const MEMORY_PAGE_SIZE = 100
+
+async function readAllSavedMemories(): Promise<StorySummaryPublic[]> {
+  const stories: StorySummaryPublic[] = []
+  for (let skip = 0; ; skip += MEMORY_PAGE_SIZE) {
+    const page = await SummariesService.readStorySummaries({ limit: MEMORY_PAGE_SIZE, skip })
+    stories.push(...page)
+    if (page.length < MEMORY_PAGE_SIZE) return stories
+  }
+}
 
 function StarPlusIcon() {
   return (
@@ -90,7 +100,7 @@ function MemoryMap() {
   })
   const storiesQuery = useQuery({
     queryKey: ["summaries"],
-    queryFn: () => SummariesService.readStorySummaries({ limit: 100 }),
+    queryFn: readAllSavedMemories,
   })
   const relationshipsQuery = useQuery({
     queryKey: ["storyRelationships"],

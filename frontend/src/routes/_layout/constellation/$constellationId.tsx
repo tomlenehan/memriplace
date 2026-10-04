@@ -25,25 +25,70 @@ function ConstellationPage() {
   const [editingStory, setEditingStory] = useState(false)
   const [title, setTitle] = useState("")
   const [overview, setOverview] = useState("")
+  const [overviewSourceHash, setOverviewSourceHash] = useState<string | null>(null)
+  const [isAiDraft, setIsAiDraft] = useState(false)
+  const [draftError, setDraftError] = useState("")
   const [wideReader] = useMediaQuery("(min-width: 900px)")
 
   useEffect(() => {
-    if (!query.data) return
+    if (!query.data || query.data.id !== id) return
     setTitle(query.data.title)
-    setOverview(query.data.overview)
-  }, [query.data])
+    const proposal = !query.data.overview
+      ? queryClient.getQueryData<{ overview: string; source_hash: string }>(["constellationOverviewProposal", id])
+      : undefined
+    if (query.data.overview) {
+      setOverview(query.data.overview)
+      setOverviewSourceHash(query.data.source_hash)
+      setIsAiDraft(false)
+      setEditingStory(false)
+      setDraftError("")
+    } else if (proposal) {
+      setOverview(proposal.overview)
+      setOverviewSourceHash(proposal.source_hash)
+      setIsAiDraft(true)
+      setEditingStory(true)
+      setStoryCollapsed(false)
+    } else {
+      setOverview("")
+      setOverviewSourceHash(query.data.source_hash)
+      setIsAiDraft(false)
+      setEditingStory(false)
+      setStoryCollapsed(false)
+    }
+    const proposalError = queryClient.getQueryData<string>(["constellationOverviewProposalError", id])
+    if (proposalError) setDraftError(proposalError)
+  }, [query.data?.id, queryClient, id])
+
+  const proposeStory = useMutation({
+    mutationFn: () => nightSkyApi.proposeOverview(id),
+    onMutate: () => setDraftError(""),
+    onSuccess: (proposal) => {
+      queryClient.setQueryData(["constellationOverviewProposal", id], proposal)
+      queryClient.removeQueries({ queryKey: ["constellationOverviewProposalError", id], exact: true })
+      setOverview(proposal.overview)
+      setOverviewSourceHash(proposal.source_hash)
+      setIsAiDraft(true)
+      setEditingStory(true)
+    },
+    onError: (error) => setDraftError(error instanceof Error ? error.message : "Couldn’t draft the constellation story."),
+  })
 
   const saveStory = useMutation({
     mutationFn: () => nightSkyApi.update(id, {
       title: title.trim(),
       overview: overview.trim(),
-      source_hash: query.data?.source_hash ?? null,
+      source_hash: overviewSourceHash ?? query.data?.source_hash ?? null,
       members: (query.data?.members ?? []).map(({ story_id, x, y, share_story, share_image }) => ({ story_id, x, y, share_story, share_image })),
       links: query.data?.links ?? [],
     }),
     onSuccess: async (updated) => {
       queryClient.setQueryData(["constellation", id], updated)
+      queryClient.removeQueries({ queryKey: ["constellationOverviewProposal", id], exact: true })
+      queryClient.removeQueries({ queryKey: ["constellationOverviewProposalError", id], exact: true })
       await queryClient.invalidateQueries({ queryKey: ["constellations"] })
+      setOverviewSourceHash(updated.source_hash)
+      setIsAiDraft(false)
+      setDraftError("")
       setEditingStory(false)
     },
   })
@@ -84,6 +129,8 @@ function ConstellationPage() {
   const cancelStoryEdit = () => {
     setTitle(constellation.title)
     setOverview(constellation.overview)
+    setOverviewSourceHash(constellation.source_hash)
+    setIsAiDraft(false)
     setEditingStory(false)
     saveStory.reset()
   }
@@ -106,10 +153,10 @@ function ConstellationPage() {
           {storyCollapsed ? "STORY · COLLAPSED" : "STORY"}
         </Text>
         <HStack spacing={1}>
-          {!editingStory && <Button size="sm" variant="ghost" leftIcon={<FiEdit3 />} onClick={() => { setEditingStory(true); saveStory.reset(); }}>
+          {!editingStory && constellation.overview && <Button size="sm" variant="ghost" leftIcon={<FiEdit3 />} onClick={() => { setEditingStory(true); saveStory.reset(); }}>
             Edit story
           </Button>}
-          {!editingStory && PUBLIC_SKY_ENABLED && <Button size="sm" variant="outline" leftIcon={constellation.publication_id != null ? <FiLock /> : <FiGlobe />}
+          {!editingStory && constellation.overview && PUBLIC_SKY_ENABLED && <Button size="sm" variant="outline" leftIcon={constellation.publication_id != null ? <FiLock /> : <FiGlobe />}
             onClick={() => {
               makePrivate.reset()
               makePublic.reset()
@@ -133,8 +180,12 @@ function ConstellationPage() {
         <Input value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} aria-label="Constellation name" />
         <Flex align="center" justify="space-between" flexWrap="wrap" gap={2} mt={4} mb={2}>
           <Text fontSize="sm" fontWeight="700">Story</Text>
-          <ReadingTextSizeControl />
+          <HStack><Button size="sm" variant="outline" onClick={() => proposeStory.mutate()}
+            isLoading={proposeStory.isPending} loadingText="Drafting story">
+            {overview.trim() ? "Suggest another draft" : "Draft with AI"}
+          </Button><ReadingTextSizeControl /></HStack>
         </Flex>
+        {isAiDraft && <Alert status="info" borderRadius="lg" mb={3}><AlertIcon />AI-drafted from these memories. Review and edit it for accuracy before saving.</Alert>}
         <Textarea value={overview} minH={{ base: "220px", md: "280px" }} maxLength={12000} lineHeight="1.8"
           style={{ fontSize: `calc(1rem * ${scale})` }}
           onChange={(event) => setOverview(event.target.value)} aria-label="Constellation story" />
@@ -145,9 +196,22 @@ function ConstellationPage() {
           <Button variant="ghost" onClick={cancelStoryEdit} isDisabled={saveStory.isPending}>Cancel</Button>
         </HStack>
         {saveStory.isError && <Text color="red.600" role="alert" mt={3}>{String(saveStory.error)}</Text>}
-      </Box> : !storyCollapsed && <Box className="constellation-story-scroll" mt={4}>
+        {proposeStory.isError && <Text color="red.600" role="alert" mt={3}>{draftError}</Text>}
+      </Box> : !storyCollapsed && constellation.overview ? <Box className="constellation-story-scroll" mt={4}>
         <NarrationControl path={`constellations/${id}`} displayText={constellation.overview}
           spokenTitle={constellation.title} showTextSizeControl />
+      </Box> : !storyCollapsed && <Box mt={5}>
+        <Heading size="md" fontFamily={'"Iowan Old Style", Georgia, serif'}>This constellation needs a story</Heading>
+        <Text color="#61777A" mt={2}>Create a draft from the connected memories, then review and save it. You can also write your own.</Text>
+        <HStack mt={4} flexWrap="wrap">
+          <Button variant="primary" onClick={() => proposeStory.mutate()} isLoading={proposeStory.isPending} loadingText="Drafting story">
+            Create a story draft
+          </Button>
+          <Button variant="ghost" leftIcon={<FiEdit3 />} onClick={() => { setEditingStory(true); setIsAiDraft(false); setDraftError("") }}>
+            Write it myself
+          </Button>
+        </HStack>
+        {draftError && <Text color="red.600" role="alert" mt={3}>{draftError}</Text>}
       </Box>}
       {makePrivate.isError && <Text color="red.600" role="alert" mt={3}>{String(makePrivate.error)}</Text>}
       {makePublic.isError && <Text color="red.600" role="alert" mt={3}>{String(makePublic.error)}</Text>}
