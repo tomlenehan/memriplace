@@ -396,11 +396,9 @@
 
 .personal-sky-viewport::before {
   opacity: .38;
-  background-image:
-    radial-gradient(circle, #f7e8bc 1px, transparent 1.5px),
-    radial-gradient(circle, #93c9bd .75px, transparent 1.2px);
-  background-size: 81px 83px, 137px 139px;
-  background-position: 12px 15px, 60px 58px;
+  background-image: url("../../assets/tiny-night-stars.svg");
+  background-size: 130px 130px;
+  background-position: 12px 15px;
 }
 
 .personal-sky-viewport::after {
