@@ -313,6 +313,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
       seenEdges.add(key)
       const active = selectedId === link.story_a_id || selectedId === link.story_b_id
       savedEdges.push({ id: `saved-${key}`, source: `memory-${link.story_a_id}`, target: `memory-${link.story_b_id}`, type: "straight", selectable: false,
+        interactionWidth: 28, className: "sky-saved-edge", data: { constellationId: group.id },
         style: { stroke: groupColor(group.id), strokeWidth: active ? 4 : 3, opacity: active ? 1 : .88 } })
     })
   })
@@ -323,6 +324,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
       data: { suggestion }, className: "sky-suggested-edge", style: { stroke: "#B9C5C3", strokeWidth: 2, strokeDasharray: "5 8", opacity: .9 } })) : []
   const draftEdges: Edge[] = crafting ? picked.slice(1).map((id, i) => ({
     id: `draft-${picked[i]}-${id}`, source: `memory-${picked[i]}`, target: `memory-${id}`, type: "straight", selectable: false,
+    className: i === picked.length - 2 ? "sky-draft-edge--latest" : "sky-draft-edge",
     style: { stroke: "#FFE4A3", strokeWidth: 3, opacity: .95 },
   })) : []
   const resumeUnfinished = useMutation({
@@ -497,7 +499,18 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
           style={compact ? { height: Math.max(600, 180 + Math.ceil(skyItems.length / (narrow ? 1 : 2)) * (narrow ? 175 : 135)) } : undefined}>
           <ReactFlow key={`${narrow ? "narrow" : compact ? "compact" : "wide"}-${focusedGroupId === NO_CONSTELLATION_SELECTION ? "none" : focusedGroup?.id ?? "all"}-${wideReader && (selected || selectedUnfinished || focusedGroup) && !crafting ? "inspecting" : "browsing"}`}
             nodes={nodes} edges={[...suggestedEdges, ...savedEdges, ...draftEdges]} nodeTypes={nodeTypes}
-            onEdgeClick={(_event, edge) => setSelectedSuggestion((edge.data as { suggestion?: RelatedStorySuggestion } | undefined)?.suggestion ?? null)}
+            onEdgeClick={(_event, edge) => {
+              const edgeData = edge.data as { suggestion?: RelatedStorySuggestion; constellationId?: number } | undefined
+              if (edgeData?.suggestion) {
+                setSelectedSuggestion(edgeData.suggestion)
+                return
+              }
+              if (edgeData?.constellationId != null) {
+                onFocusedGroupChange(edgeData.constellationId)
+                setSelectedId(null)
+                setSelectedUnfinishedId(null)
+              }
+            }}
             fitView={!compact && skyItems.length <= 8} fitViewOptions={{ padding: .38, maxZoom: 1.1 }}
             defaultViewport={compact ? { x: narrow ? 30 : 12, y: 50, zoom: narrow ? .9 : .8 } : { x: 25, y: 45, zoom: .9 }} minZoom={.3} maxZoom={1.8}
             nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
