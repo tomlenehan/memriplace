@@ -427,6 +427,23 @@
   filter: drop-shadow(0 0 6px rgba(255, 221, 151, .65));
   transition: stroke .2s ease, opacity .2s ease;
 }
+.personal-sky-viewport .react-flow__edge.sky-saved-edge { cursor: pointer; }
+.personal-sky-viewport .react-flow__edge.sky-saved-edge .react-flow__edge-path,
+.personal-sky-viewport .react-flow__edge.sky-saved-edge .react-flow__edge-interaction { cursor: pointer; }
+.personal-sky-viewport .react-flow__edge.sky-saved-edge .react-flow__edge-path {
+  animation: sky-saved-edge-pulse 2.6s ease-in-out infinite;
+}
+.personal-sky-viewport .react-flow__edge.sky-draft-edge--latest .react-flow__edge-path {
+  animation: sky-draft-edge-pulse 1.8s ease-in-out 1;
+}
+@keyframes sky-saved-edge-pulse {
+  0%, 100% { opacity: .78; filter: drop-shadow(0 0 2px rgba(255, 228, 164, .25)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 7px rgba(255, 228, 164, .9)); }
+}
+@keyframes sky-draft-edge-pulse {
+  0%, 100% { opacity: .88; filter: drop-shadow(0 0 3px rgba(255, 228, 164, .4)); }
+  45% { opacity: 1; filter: drop-shadow(0 0 9px rgba(255, 228, 164, 1)); }
+}
 .personal-sky-viewport .sky-suggested-edge path { cursor: pointer; filter: none; }
 
 .personal-sky-viewport .react-flow__controls {
@@ -779,6 +796,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sky-primary-action--pulse { animation: none; }
+  .personal-sky-viewport .react-flow__edge.sky-saved-edge .react-flow__edge-path,
+  .personal-sky-viewport .react-flow__edge.sky-draft-edge--latest .react-flow__edge-path { animation: none; }
   .sky-mode-button, .sky-node-button, .personal-sky-viewport .react-flow__edge path { transition: none; }
   .sky-node.crafting:not(.picked) .sky-node-button::after { animation: none; opacity: 0; }
   .sky-node.crafting.picked .sky-node-button::after { animation: none; opacity: 1; }
