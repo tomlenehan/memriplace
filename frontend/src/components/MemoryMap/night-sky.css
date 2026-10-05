@@ -60,6 +60,7 @@
   scrollbar-color: rgba(75, 141, 130, .52) transparent;
   scrollbar-width: thin;
 }
+.sky-story-panel .sky-story-image { border-radius: 16px !important; }
 
 .sky-story-panel::-webkit-scrollbar,
 .public-sky-memory-reader::-webkit-scrollbar,
@@ -157,6 +158,16 @@
   font-size: 18px !important;
   font-weight: 800 !important;
   white-space: nowrap !important;
+}
+@keyframes sky-create-constellation-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(248, 216, 129, .26)); }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(248, 216, 129, .9))
+      drop-shadow(0 0 24px rgba(248, 216, 129, .48));
+  }
+}
+.sky-primary-action--pulse:not(:disabled) {
+  animation: sky-create-constellation-pulse 2.2s ease-in-out infinite;
 }
 .sky-primary-action-add { min-width: 188px !important; }
 
@@ -278,7 +289,7 @@
 }
 
 .sky-canvas-tools { min-height: 58px; padding: 8px 18px; background: #123442; }
-.sky-map-key-tools { position: relative; flex: 0 0 auto; }
+.sky-map-key-tools { position: relative; z-index: 5; flex: 0 0 auto; }
 
 .sky-map-key-toggle {
   display: inline-flex;
@@ -304,8 +315,11 @@
 
 .sky-map-key-panel {
   position: absolute;
-  right: 0;
-  bottom: calc(100% + 10px);
+  top: calc(100% + 10px);
+  right: auto;
+  left: 0;
+  bottom: auto;
+  z-index: 10;
   display: grid;
   grid-template-columns: repeat(2, max-content);
   gap: 10px 16px;
@@ -764,6 +778,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sky-primary-action--pulse { animation: none; }
   .sky-mode-button, .sky-node-button, .personal-sky-viewport .react-flow__edge path { transition: none; }
   .sky-node.crafting:not(.picked) .sky-node-button::after { animation: none; opacity: 0; }
   .sky-node.crafting.picked .sky-node-button::after { animation: none; opacity: 1; }

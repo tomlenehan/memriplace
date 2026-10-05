@@ -29,8 +29,9 @@ import {
   type StoryRelationshipPublic,
   type StorySummaryPublic,
 } from "../../client"
-import ConstellationMap from "../../components/MemoryMap/ConstellationMap"
+import ConstellationMap, { NO_CONSTELLATION_SELECTION } from "../../components/MemoryMap/ConstellationMap"
 import ConstellationStar from "../../components/Common/ConstellationStar"
+import ConnectedStarsIcon from "../../components/Common/ConnectedStarsIcon"
 import NarrationControl from "../../components/Common/NarrationControl"
 import StoryTopicPicker from "../../components/Conversations/StoryTopicPicker"
 import { nightSkyApi, type Constellation } from "../../lib/nightSkyApi"
@@ -67,23 +68,15 @@ function StarPlusIcon() {
   )
 }
 
-function ConnectedStarsIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m10.5 8.5-3.7 5.7m6.7-5.7 3.7 5.7m-8.4 2h6.4" />
-      <path d="m12 2.5 1.35 2.8 3.05.45-2.2 2.15.52 3.05L12 9.5l-2.72 1.45.52-3.05L7.6 5.75l3.05-.45L12 2.5Z" />
-      <path d="m5.5 13.2.95 1.95 2.15.32-1.55 1.51.36 2.14-1.91-1.01-1.91 1.01.36-2.14-1.55-1.51 2.15-.32.95-1.95Z" />
-      <path d="m18.5 13.2.95 1.95 2.15.32-1.55 1.51.36 2.14-1.91-1.01-1.91 1.01.36-2.14-1.55-1.51 2.15-.32.95-1.95Z" />
-    </svg>
-  )
-}
-
 function MemoryMap() {
   const [view, setView] = useState<"sky" | "list">("sky")
   const [focusedGroupId, setFocusedGroupId] = useState<number | null>(null)
   const { mode: selectedMode } = Route.useSearch()
   const mode = selectedMode ?? "memories"
   const [crafting, setCrafting] = useState(false)
+  const pulseCreateConstellation = mode === "constellations"
+    && (focusedGroupId === null || focusedGroupId === NO_CONSTELLATION_SELECTION)
+    && !crafting
   const [topicOpen, setTopicOpen] = useState(false)
   const [startingTopic, setStartingTopic] = useState<StoryStarterTopic | null>(null)
   const navigate = useNavigate()
@@ -268,7 +261,7 @@ function MemoryMap() {
               ? <Button className="sky-primary-action sky-primary-action-add" variant="accent" size="md" leftIcon={<StarPlusIcon />} onClick={openTopics}>
                 Add memory
               </Button>
-              : <Button className="sky-primary-action" variant="accent" size="md" leftIcon={<ConnectedStarsIcon />}
+              : <Button className={`sky-primary-action${pulseCreateConstellation ? " sky-primary-action--pulse" : ""}`} variant="accent" size="md" leftIcon={<ConnectedStarsIcon />}
                 isDisabled={crafting} onClick={() => { setView("sky"); setCrafting(true) }}>Create constellation</Button>}
             <Button className="sky-list-toggle" size="md" variant="ghost" leftIcon={<FiList />}
               isDisabled={mode === "memories" && stories.length === 0} onClick={() => setView(view === "sky" ? "list" : "sky")}>

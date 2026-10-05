@@ -4,13 +4,14 @@ import {
   FiGitBranch,
   FiHome,
   FiSettings, FiStar, FiUsers } from "react-icons/fi";
+import ConnectedStarsIcon from "./ConnectedStarsIcon";
 import useAuth from "../../hooks/useAuth";
 import { PUBLIC_SKY_ENABLED } from "../../config";
 
 const items = [
   { icon: FiHome, title: "Home", path: "/" },
   { icon: FiGitBranch, title: "My Night Sky", path: "/conversations" },
-  { icon: FiStar, title: "Global Night Sky", path: "/night-sky" },
+  { icon: ConnectedStarsIcon, title: "Global Night Sky", path: "/night-sky" },
   { icon: FiSettings, title: "Settings", path: "/settings" },
 ];
 

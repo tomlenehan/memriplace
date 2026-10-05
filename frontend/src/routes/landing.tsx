@@ -23,7 +23,6 @@ import {
   FiArrowRight,
   FiBookOpen,
   FiCheck,
-  FiGitBranch,
   FiGlobe,
   FiLogIn,
   FiLock,
@@ -36,6 +35,7 @@ import memriPlaceLogo from "../assets/images/MemriPlaceLighterLogo.png"
 import background from "../assets/images/homepage_parallax_flat/background.png"
 import foreground from "../assets/images/homepage_parallax_flat/foreground3.png"
 import midground from "../assets/images/homepage_parallax_flat/midground.png"
+import ConnectedStarsIcon from "../components/Common/ConnectedStarsIcon"
 import starscape from "../assets/images/homepage_parallax_flat/starscape.png"
 import sharedConstellationSky from "../assets/images/step3.webp"
 import AuthModal from "../components/Auth/AuthModal"
@@ -385,7 +385,7 @@ export function LandingPage({
                   <Button
                     as={Link}
                     to="/night-sky"
-                    leftIcon={<Icon as={FiGitBranch} />}
+                    leftIcon={<ConnectedStarsIcon />}
                     bg="rgba(9, 39, 50, 0.56)"
                     border="1px solid rgba(247, 213, 129, 0.62)"
                     boxShadow="0 2px 0 rgba(3, 19, 24, 0.34), inset 0 1px 0 rgba(255,255,255,0.12)"

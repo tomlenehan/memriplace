@@ -19,7 +19,7 @@ const groupColors = ["#F8D881", "#8ED8BC", "#D9B8F0", "#F5AC91", "#91C9EF", "#F3
 const MAX_NODE_USER_TURNS = 8
 const groupColor = (id: number) => groupColors[(id - 1) % groupColors.length]
 // Constellation ids are database ids, so zero can safely represent the clear-all state.
-const NO_CONSTELLATION_SELECTION = 0
+export const NO_CONSTELLATION_SELECTION = 0
 
 type StarNode = Node<{
   story: StorySummaryPublic
@@ -374,7 +374,8 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
     <Heading className="sky-story-title" fontFamily={'"Iowan Old Style", Georgia, serif'} size="md" mt={4}>{selected.title || "A remembered moment"}</Heading>
     <Button as={Link} to="/summary/$summaryId" params={{ summaryId: String(selected.id) }}
       variant="secondary" leftIcon={<FiEdit3 />} w="full" mt={4}>Open Memory</Button>
-    {selected.image_url && <Image src={selected.image_url} alt="" maxH="180px" w="full" objectFit="contain" mt={5} />}
+    {selected.image_url && <Image className="sky-story-image" src={selected.image_url} alt="" mt={5} maxH="180px" maxW="full"
+      w="auto" h="auto" mx="auto" flexShrink={0} objectFit="contain" borderRadius="16px" />}
     <Box mt={4}><NarrationControl path={`memories/${selected.id}`} displayText={selected.summary_text}
       spokenTitle={selected.title || "A remembered moment"} showTextSizeControl /></Box>
     <Box className="sky-story-actions">
