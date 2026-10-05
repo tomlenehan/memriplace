@@ -17,7 +17,9 @@ import {
   useDisclosure,
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import {
+  FiCreditCard,
   FiStar,
   FiLogOut,
   FiMenu,
@@ -29,15 +31,27 @@ import useAuth from "../../hooks/useAuth"
 import ConnectedStarsIcon from "./ConnectedStarsIcon"
 import UserMenu from "./UserMenu"
 import { PUBLIC_SKY_ENABLED } from "../../config"
+import { nightSkyApi } from "../../lib/nightSkyApi"
 
 const links = [
   { label: "My Night Sky", to: "/conversations", icon: FiStar },
   { label: "Global Night Sky", to: "/night-sky", icon: ConnectedStarsIcon },
+  { label: "Membership", to: "/membership", icon: FiCreditCard },
 ] as const
 
 function AppHeader() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { user, logout } = useAuth()
+  const membershipQuery = useQuery({
+    queryKey: ["membership"],
+    queryFn: () => nightSkyApi.membership(),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  })
+  const visibleLinks = links.filter((item) =>
+    (item.to !== "/night-sky" || PUBLIC_SKY_ENABLED) &&
+    (item.to !== "/membership" || membershipQuery.data?.enabled === true),
+  )
 
   return (
     <Box
@@ -98,7 +112,7 @@ function AppHeader() {
           justify="center"
           spacing={1}
         >
-          {links.filter((item) => item.to !== "/night-sky" || PUBLIC_SKY_ENABLED).map((item) => (
+          {visibleLinks.map((item) => (
             <Button
               key={item.label}
               as={Link}
@@ -180,7 +194,7 @@ function AppHeader() {
           <DrawerCloseButton minW="44px" minH="44px" />
           <DrawerBody pt={12}>
             <Stack as="nav" aria-label="Main navigation" spacing={2}>
-              {links.filter((item) => item.to !== "/night-sky" || PUBLIC_SKY_ENABLED).map((item) => (
+              {visibleLinks.map((item) => (
                 <Button
                   key={item.label}
                   as={Link}

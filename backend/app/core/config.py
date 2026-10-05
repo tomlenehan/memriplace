@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     OPENAI_NARRATION_VOICE: str = "marin"
     OPENAI_TRANSCRIPTION_MODEL: str = "gpt-transcribe"
     PUBLIC_SKY_ENABLED: bool = False
+    MEMBERSHIPS_ENABLED: bool = False
     # LangSmith is opt-in because its traces can include private story content.
     # LANGCHAIN_* remains supported for the older LangChain packages in this app.
     LANGSMITH_API_KEY: str | None = None

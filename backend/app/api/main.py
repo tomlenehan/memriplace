@@ -9,6 +9,7 @@ from app.api.routes import (
     images,
     items,
     login,
+    membership,
     narration,
     progress,
     public_sky,
@@ -22,6 +23,7 @@ from app.api.routes import (
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(membership.router, prefix="/membership", tags=["membership"])
 api_router.include_router(utils.router, prefix="/utils", tags=["utils"])
 api_router.include_router(items.router, prefix="/items", tags=["items"])
 api_router.include_router(

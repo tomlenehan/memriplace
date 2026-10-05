@@ -29,6 +29,12 @@ from app.models import (
     PublishedMemory,
     StoryRelationship,
     StorySummary,
+    User,
+)
+from app.services.memberships import (
+    FREE_PUBLIC_MEMORY_LIMIT,
+    active_membership,
+    shared_memory_ids,
 )
 from app.utils import get_local_uploads_directory, get_private_image_url
 
@@ -146,6 +152,21 @@ def _draft_snapshot(
             422,
             "Name and describe a constellation of at least two memories before publishing",
         )
+    if settings.MEMBERSHIPS_ENABLED and not active_membership(session, user_id):
+        already_shared = shared_memory_ids(
+            session, user_id, excluding_constellation_id=record.id
+        )
+        requested_shared = {
+            member.story_id
+            for member in members
+            if member.share_story or member.share_image
+        }
+        if len(already_shared | requested_shared) > FREE_PUBLIC_MEMORY_LIMIT:
+            raise HTTPException(
+                402,
+                "The Free plan includes story or photo details for one memory. "
+                "Choose at most one memory, or visit Membership to share more.",
+            )
     stories = {
         s.id: s
         for s in session.exec(
@@ -331,6 +352,10 @@ def publish_constellation(
 ) -> PublicConstellation:
     _enabled()
     name = _author_name(body.author_name, current_user.email)
+    if settings.MEMBERSHIPS_ENABLED and not active_membership(session, current_user.id):
+        session.exec(
+            select(User).where(User.id == current_user.id).with_for_update()
+        ).first()
     preview, prepared = _draft_snapshot(
         session, constellation_id, current_user.id, name
     )

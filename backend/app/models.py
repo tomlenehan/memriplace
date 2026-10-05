@@ -53,6 +53,29 @@ class User(UserBase, table=True):
     contacts: list["Contact"] = Relationship(back_populates="user")
 
 
+class UserMembership(SQLModel, table=True):
+    """Paid plan state mirrored from a future billing provider webhook."""
+
+    __table_args__ = (UniqueConstraint("user_id"),)
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("user.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    plan_code: str = Field(default="plus", max_length=32)
+    status: str = Field(default="active", max_length=32)
+    provider: str | None = Field(default=None, max_length=32)
+    provider_customer_id: str | None = Field(default=None, unique=True, max_length=128)
+    provider_subscription_id: str | None = Field(default=None, unique=True, max_length=128)
+    current_period_end: datetime | None = None
+    cancel_at_period_end: bool = False
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserPublic(UserBase):
     id: int
     profile_image_url: str | None = None

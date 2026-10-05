@@ -26,6 +26,7 @@ import { Route as NightSkyPublicationIdImport } from './routes/night-sky/$public
 import { Route as LayoutUserstorypromptsImport } from './routes/_layout/user_story_prompts'
 import { Route as LayoutStoriesImport } from './routes/_layout/stories'
 import { Route as LayoutSettingsImport } from './routes/_layout/settings'
+import { Route as LayoutMembershipImport } from './routes/_layout/membership'
 import { Route as LayoutItemsImport } from './routes/_layout/items'
 import { Route as LayoutConversationsImport } from './routes/_layout/conversations'
 import { Route as LayoutAdminImport } from './routes/_layout/admin'
@@ -107,6 +108,11 @@ const LayoutStoriesRoute = LayoutStoriesImport.update({
 
 const LayoutSettingsRoute = LayoutSettingsImport.update({
   path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+
+const LayoutMembershipRoute = LayoutMembershipImport.update({
+  path: '/membership',
   getParentRoute: () => LayoutRoute,
 } as any)
 
@@ -194,6 +200,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsImport
       parentRoute: typeof LayoutImport
     }
+    '/_layout/membership': {
+      preLoaderRoute: typeof LayoutMembershipImport
+      parentRoute: typeof LayoutImport
+    }
     '/_layout/settings': {
       preLoaderRoute: typeof LayoutSettingsImport
       parentRoute: typeof LayoutImport
@@ -240,6 +250,7 @@ export const routeTree = rootRoute.addChildren([
     LayoutAdminRoute,
     LayoutConversationsRoute,
     LayoutItemsRoute,
+    LayoutMembershipRoute,
     LayoutSettingsRoute,
     LayoutStoriesRoute,
     LayoutUserstorypromptsRoute,

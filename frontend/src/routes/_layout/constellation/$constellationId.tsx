@@ -1,7 +1,7 @@
 import {
-  Alert, AlertIcon, Box, Button, Container, Flex, Heading, HStack, IconButton,
+  Alert, AlertIcon, Box, Button, Checkbox, Container, Flex, Heading, HStack, IconButton,
   Image, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter,
-  ModalHeader, ModalOverlay, Spinner, Text, Textarea, useMediaQuery,
+  ModalHeader, ModalOverlay, Spinner, Text, Textarea, useMediaQuery, VStack,
 } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
@@ -22,8 +22,12 @@ function ConstellationPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const query = useQuery({ queryKey: ["constellation", id], queryFn: () => nightSkyApi.get(id), enabled: Number.isInteger(id) && id > 0 })
+  const membershipQuery = useQuery({ queryKey: ["membership", id], queryFn: () => nightSkyApi.membership(id), enabled: PUBLIC_SKY_ENABLED && query.isSuccess })
   const [selected, setSelected] = useState<number | null>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [shareOptionsOpen, setShareOptionsOpen] = useState(false)
+  const [shareChoices, setShareChoices] = useState<Record<number, { story: boolean; image: boolean }>>({})
+  const [shareError, setShareError] = useState("")
   const [storyCollapsed, setStoryCollapsed] = useState(false)
   const [editingStory, setEditingStory] = useState(false)
   const [title, setTitle] = useState("")
@@ -140,18 +144,37 @@ function ConstellationPage() {
       // Use a non-identifying display name so making a constellation public
       // does not expose the account holder's profile name by default.
       const authorName = "A MemriPlace storyteller"
+      const current = query.data
+      if (!current) throw new Error("Couldn’t load this constellation. Please try again.")
+      const updated = await nightSkyApi.update(id, {
+        title: current.title,
+        overview: current.overview,
+        source_hash: current.source_hash,
+        members: current.members.map(({ story_id, x, y, share_story, share_image }) => ({
+          story_id,
+          x,
+          y,
+          share_story: shareChoices[story_id]?.story ?? share_story,
+          share_image: shareChoices[story_id]?.image ?? share_image,
+        })),
+        links: current.links,
+      })
+      queryClient.setQueryData(["constellation", id], updated)
       const preview = await nightSkyApi.preview(id, authorName)
       if (!preview.preview_token) throw new Error("Couldn’t prepare this constellation for sharing.")
       return nightSkyApi.publish(id, authorName, preview.preview_token)
     },
     onSuccess: async () => {
       makePrivate.reset()
+      setShareOptionsOpen(false)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["constellation", id] }),
         queryClient.invalidateQueries({ queryKey: ["constellations"] }),
         queryClient.invalidateQueries({ queryKey: ["publicConstellation"] }),
+        queryClient.invalidateQueries({ queryKey: ["membership"] }),
       ])
     },
+    onError: (error) => setShareError(error instanceof Error ? error.message : "Couldn’t share this constellation."),
   })
 
   if (query.isLoading) return <Flex minH="55vh" align="center" justify="center"><Spinner size="xl" color="#4B8D82" /></Flex>
@@ -159,6 +182,40 @@ function ConstellationPage() {
 
   const constellation = query.data
   const member = selected == null ? null : constellation.members[selected]
+  const selectedShareIds = new Set(Object.entries(shareChoices)
+    .filter(([, choice]) => choice.story || choice.image)
+    .map(([storyId]) => Number(storyId)))
+  const currentlySharedIds = new Set([
+    ...(membershipQuery.data?.shared_memory_ids ?? []),
+    ...selectedShareIds,
+  ])
+  const beginSharing = () => {
+    setShareChoices(Object.fromEntries(constellation.members.map((item) => [item.story_id, {
+      story: item.share_story,
+      image: item.share_image,
+    }])))
+    setShareError("")
+    makePublic.reset()
+    setShareOptionsOpen(true)
+    void membershipQuery.refetch()
+  }
+  const updateShareChoice = (storyId: number, field: "story" | "image", value: boolean) => {
+    const current = shareChoices[storyId] ?? { story: false, image: false }
+    const next = { ...shareChoices, [storyId]: { ...current, [field]: value } }
+    const selected = new Set(Object.entries(next)
+      .filter(([, choice]) => choice.story || choice.image)
+      .map(([selectedStoryId]) => Number(selectedStoryId)))
+    const membershipStatus = membershipQuery.data
+    if (value && membershipStatus?.enabled && !membershipStatus.is_paid && membershipStatus.public_memory_limit != null) {
+      const count = new Set([...membershipStatus.shared_memory_ids, ...selected]).size
+      if (count > membershipStatus.public_memory_limit) {
+        setShareError("Free includes one memory with its story or photo. Visit Membership to share more.")
+        return
+      }
+    }
+    setShareChoices(next)
+    setShareError("")
+  }
   const cancelStoryEdit = () => {
     setTitle(constellation.title)
     setOverview(constellation.overview)
@@ -192,9 +249,8 @@ function ConstellationPage() {
           {!editingStory && constellation.overview && PUBLIC_SKY_ENABLED && <Button size="sm" variant="outline" leftIcon={constellation.publication_id != null ? <FiLock /> : <FiGlobe />}
             onClick={() => {
               makePrivate.reset()
-              makePublic.reset()
               if (constellation.publication_id != null) makePrivate.mutate()
-              else makePublic.mutate()
+              else beginSharing()
             }}
             isLoading={makePrivate.isPending || makePublic.isPending}>
             {constellation.publication_id != null ? "Make private" : "Make public"}
@@ -280,6 +336,68 @@ function ConstellationPage() {
         {member.image_url && <Image src={member.image_url} alt={member.title} mt={4} borderRadius="lg" maxH="230px" objectFit="cover" />}
       </Box>}
     </Flex>
+    <Modal isOpen={shareOptionsOpen} onClose={() => { if (!makePublic.isPending) setShareOptionsOpen(false) }} isCentered size="2xl">
+      <ModalOverlay />
+      <ModalContent borderRadius="16px" mx={4}>
+        <ModalHeader color="#17353B">Choose what to share</ModalHeader>
+        <ModalCloseButton isDisabled={makePublic.isPending} />
+        <ModalBody>
+          <Text color="#61777A">
+            The constellation title, overview, star titles, and links will be public. Choose which individual memory stories and photos readers can open.
+          </Text>
+          {membershipQuery.isPending ? <Flex justify="center" py={6}><Spinner color="#4B8D82" /></Flex>
+            : membershipQuery.isError ? <Alert status="error" mt={4} borderRadius="8px">
+              <AlertIcon />We couldn’t check your sharing allowance. <Button size="sm" variant="link" onClick={() => void membershipQuery.refetch()}>Try again</Button>
+            </Alert> : !membershipQuery.data.enabled ? <Alert status="info" mt={4} borderRadius="8px">
+              <AlertIcon />Memberships aren’t active yet. Your sharing remains unrestricted; choose any stories or photos to include.
+            </Alert> : <>
+              <Alert status={membershipQuery.data.is_paid ? "success" : "info"} mt={4} borderRadius="8px">
+                <AlertIcon />{membershipQuery.data.is_paid
+                  ? "Plus includes unlimited publicly shared memory stories and photos."
+                  : `Free plan: detailed stories or photos are enabled for ${currentlySharedIds.size} of ${membershipQuery.data.public_memory_limit ?? 1} memories across your skies.`}
+              </Alert>
+              <VStack align="stretch" spacing={3} mt={4} maxH="48vh" overflowY="auto" pr={1}>
+                {constellation.members.map((item) => {
+                  const choice = shareChoices[item.story_id] ?? { story: false, image: false }
+                  return <Box key={item.story_id} border="1px solid #DDE5D9" borderRadius="8px" bg="#FFFEFA" p={4}>
+                    <Text color="#17353B" fontWeight="800" mb={3}>{item.title || "A remembered moment"}</Text>
+                    <VStack align="stretch" spacing={2}>
+                      <Checkbox colorScheme="teal" isChecked={choice.story} isDisabled={membershipQuery.isPending || membershipQuery.isError}
+                        onChange={(event) => updateShareChoice(item.story_id, "story", event.target.checked)}>
+                        Share this memory’s story
+                      </Checkbox>
+                      <Checkbox colorScheme="teal" isChecked={choice.image} isDisabled={!item.image_url || membershipQuery.isPending || membershipQuery.isError}
+                        onChange={(event) => updateShareChoice(item.story_id, "image", event.target.checked)}>
+                        {item.image_url ? "Share its photo" : "No photo to share"}
+                      </Checkbox>
+                    </VStack>
+                  </Box>
+                })}
+              </VStack>
+            </>}
+          {(shareError || makePublic.isError) && <Alert status="warning" mt={4} borderRadius="8px">
+            <AlertIcon />
+            <Box>
+              <Text>{shareError || String(makePublic.error)}</Text>
+              {membershipQuery.data?.enabled && !membershipQuery.data.is_paid && <Button as={Link} to="/membership" size="sm" variant="link" color="#286B69" mt={1}>
+                View membership plans
+              </Button>}
+            </Box>
+          </Alert>}
+          <Text color="#7A8D83" fontSize="sm" mt={4}>
+            When published, the constellation title, overview, star titles, and links are public. Your original conversation and voice transcript stay private. You can make the constellation private again at any time.
+          </Text>
+        </ModalBody>
+        <ModalFooter gap={2} flexWrap="wrap">
+          {membershipQuery.data?.enabled && !membershipQuery.data.is_paid && <Button as={Link} to="/membership" variant="ghost" color="#286B69" mr="auto">Compare plans</Button>}
+          <Button variant="ghost" onClick={() => setShareOptionsOpen(false)} isDisabled={makePublic.isPending}>Cancel</Button>
+          <Button variant="primary" onClick={() => makePublic.mutate()} isDisabled={!membershipQuery.isSuccess || makePublic.isPending}
+            isLoading={makePublic.isPending} loadingText="Sharing">
+            Share to Global Night Sky
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
     <Modal isOpen={deleteConfirmOpen} onClose={() => { if (!deleteConstellation.isPending) setDeleteConfirmOpen(false) }} isCentered>
       <ModalOverlay />
       <ModalContent borderRadius="20px" mx={4}>

@@ -25,6 +25,17 @@ export type Constellation = {
   links: { story_a_id: number; story_b_id: number }[]
 }
 export type MemoryConstellationImpact = { id: number; title: string; is_public: boolean }
+export type MembershipStatus = {
+  enabled: boolean
+  plan: "free" | "plus"
+  status: string
+  is_paid: boolean
+  public_memory_limit: number | null
+  shared_memory_count: number
+  shared_memory_ids: number[]
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+}
 export type ConstellationWrite = {
   title: string
   overview: string
@@ -87,6 +98,9 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 }
 
 export const nightSkyApi = {
+  membership: (excludingConstellationId?: number) => request<MembershipStatus>(
+    `/membership/me${excludingConstellationId == null ? "" : `?excluding_constellation_id=${excludingConstellationId}`}`,
+  ),
   list: () => request<Constellation[]>("/constellations/"),
   get: (id: number) => request<Constellation>(`/constellations/${id}`),
   memoryConstellations: (storyId: number) => request<MemoryConstellationImpact[]>(`/summaries/${storyId}/constellations`),
