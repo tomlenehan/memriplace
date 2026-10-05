@@ -65,22 +65,24 @@ const storySteps = [
   {
     icon: FiBookOpen,
     index: "01",
-    text: "Start with a moment already on your mind.",
-    title: "Find a spark",
+    text: "Capture one moment by writing it down or talking it through.",
+    title: "Start with a memory",
     color: "#FFF0BF",
   },
   {
     icon: FiMic,
     index: "02",
-    text: "Your AI companion asks thoughtful questions to help you remember the details.",
-    title: "Follow the memory",
+    text: "Bring related memories together in a story or constellation in your personal Night Sky.",
+    title: "Connect your memories",
     color: "#DDEDE1",
   },
   {
     icon: FiStar,
     index: "03",
-    text: "Save the story to your own Night Sky or choose to share it.",
-    title: "Bring light to your story.",
+    text: PUBLIC_SKY_ENABLED
+      ? "Preview a constellation, choose what others can read, then share it with the Global Night Sky."
+      : "When sharing is available, you can preview a constellation, choose what others can read, and share it with the Global Night Sky.",
+    title: "Share if you want",
     color: "#E9DFF1",
   },
 ]
@@ -909,7 +911,7 @@ export function LandingPage({
                     sx={storybookHeading}
                   >
                     {PUBLIC_SKY_ENABLED
-                      ? "Share a constellation whenever you choose."
+                      ? "Share a constellation and join the Memri community."
                       : "Your sky stays private while sharing is on its way."}
                   </Heading>
                   <Text color="rgba(255, 248, 232, 0.9)" lineHeight="1.7">
