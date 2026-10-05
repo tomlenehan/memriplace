@@ -367,7 +367,7 @@ export default function NarrationControl({ path, publicStory = false, displayTex
         })}
       </Text>
       {displayTextLines && (isExpanded ? phase === "idle" : true) && <Button type="button" variant="ghost" size="sm"
-        mt={1} px={0} minH="44px" color="#286B69" fontWeight="750" aria-expanded={isExpanded}
+        mt={1} px={4} minH="44px" color="#286B69" fontWeight="750" aria-expanded={isExpanded}
         aria-controls={storyTextId} onClick={() => setIsExpanded((expanded) => !expanded)}>
         {isExpanded ? "Show less" : "Read full story"}
       </Button>}
