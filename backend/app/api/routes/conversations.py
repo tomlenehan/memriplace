@@ -199,7 +199,11 @@ def activate_story_node(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Conversation:
-    conversation = session.get(Conversation, id)
+    # Serialize concurrent Continue requests so a paused node only gets one
+    # resume prompt and its state transition is applied once.
+    conversation = session.exec(
+        select(Conversation).where(Conversation.id == id).with_for_update()
+    ).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Story node not found")
     if conversation.user_id != current_user.id:

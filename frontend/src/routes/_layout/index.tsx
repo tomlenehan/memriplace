@@ -131,7 +131,7 @@ function Dashboard() {
               </Button>
             </Flex>
             <Text fontSize="sm" color="ui.muted" mt={4}>
-              Speak or type at your own pace. Your memories stay private.
+              Speak or type at your own pace. My memories stay private.
             </Text>
           </Box>
           <ConstellationStar

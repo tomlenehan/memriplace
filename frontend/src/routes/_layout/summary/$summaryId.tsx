@@ -312,7 +312,7 @@ function SummaryPage() {
       <Flex justifyContent="space-between" alignItems="center" pt={8} gap={3}>
         <Button as={Link} to="/conversations" variant="outline">
           <Box as={IoChevronBackCircleOutline} size="20px" mr={2} />
-          Your memories
+          My memories
         </Button>
         {conversationId && (
           <Button as={Link} to="/conversation/$conversationId" params={{ conversationId: String(conversationId) }} variant="ghost" rightIcon={<FiGitBranch />}>

@@ -98,6 +98,8 @@ export function useRealtimeStory({
   const connectionRef = useRef<RTCPeerConnection | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const startAttemptSequenceRef = useRef(0)
+  const activeStartAttemptRef = useRef<number | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const assistantTranscriptsRef = useRef(new Map<string, string>())
   const assistantStreamingRef = useRef(false)
@@ -140,6 +142,7 @@ export function useRealtimeStory({
   ])
 
   const clearConnection = useCallback(() => {
+    activeStartAttemptRef.current = null
     dataChannelRef.current?.close()
     dataChannelRef.current = null
     connectionRef.current?.close()
@@ -191,13 +194,15 @@ export function useRealtimeStory({
   const persistUserTranscript = useCallback(
     async (itemId: string, content: string) => {
       if (!content.trim() || persistedUserItemsRef.current.has(itemId)) return
+      const onUserMessage = callbacksRef.current.onUserMessage
+      const onConversationChanged = callbacksRef.current.onConversationChanged
       // Mark before awaiting so the final event and Stop cannot save the same turn twice.
       persistedUserItemsRef.current.add(itemId)
       try {
         const message = await persistMessage("user", content.trim())
         userTranscriptsRef.current.delete(itemId)
-        callbacksRef.current.onUserMessage(message, itemId)
-        callbacksRef.current.onConversationChanged(false)
+        onUserMessage(message, itemId)
+        onConversationChanged(false)
       } catch (persistError) {
         persistedUserItemsRef.current.delete(itemId)
         throw persistError
@@ -240,11 +245,13 @@ export function useRealtimeStory({
         event.transcript || assistantTranscriptsRef.current.get(itemId) || ""
       if (!transcript.trim()) return
 
+      const onAssistantComplete = callbacksRef.current.onAssistantComplete
+      const onConversationChanged = callbacksRef.current.onConversationChanged
       await persistMessage("ai", transcript.trim())
       assistantTranscriptsRef.current.delete(itemId)
       assistantStreamingRef.current = false
-      callbacksRef.current.onAssistantComplete()
-      callbacksRef.current.onConversationChanged(true)
+      onAssistantComplete()
+      onConversationChanged(true)
       setStatus("connected")
     },
     [persistMessage],
@@ -391,7 +398,7 @@ export function useRealtimeStory({
   )
 
   const start = useCallback(async () => {
-    if (connectionRef.current) return
+    if (connectionRef.current || activeStartAttemptRef.current !== null) return
     if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
       const message = "Voice conversations are not supported in this browser."
       setError(message)
@@ -412,6 +419,8 @@ export function useRealtimeStory({
     setError(null)
     pauseRequestedRef.current = false
     setStatus("connecting")
+    const attemptId = ++startAttemptSequenceRef.current
+    activeStartAttemptRef.current = attemptId
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -421,6 +430,10 @@ export function useRealtimeStory({
           autoGainControl: true,
         },
       })
+      if (activeStartAttemptRef.current !== attemptId) {
+        for (const track of stream.getTracks()) track.stop()
+        return
+      }
       streamRef.current = stream
 
       const connection = new RTCPeerConnection()
@@ -436,16 +449,19 @@ export function useRealtimeStory({
       document.body.append(audio)
       audioRef.current = audio
       connection.addEventListener("track", (event) => {
+        if (connectionRef.current !== connection) return
         const remoteStream = event.streams[0] || new MediaStream([event.track])
 
         audio.srcObject = remoteStream
         void audio.play().catch(() => {
+          if (connectionRef.current !== connection) return
           const message =
             "Your browser blocked voice playback. Check your audio settings, then restart voice chat."
           failVoiceSession(message)
         })
       })
       connection.addEventListener("connectionstatechange", () => {
+        if (connectionRef.current !== connection) return
         if (connection.connectionState === "failed") {
           const message = "The voice connection dropped. Please try again."
           failVoiceSession(message)
@@ -455,11 +471,13 @@ export function useRealtimeStory({
       const dataChannel = connection.createDataChannel("oai-events")
       dataChannelRef.current = dataChannel
       dataChannel.addEventListener("open", () => {
+        if (connectionRef.current !== connection || dataChannelRef.current !== dataChannel) return
         suppressFirstAssistantTranscriptRef.current = suppressFirstAssistantTranscript
         dataChannel.send(JSON.stringify({ type: "response.create" }))
         setStatus("thinking")
       })
       dataChannel.addEventListener("message", (messageEvent) => {
+        if (connectionRef.current !== connection || dataChannelRef.current !== dataChannel) return
         try {
           const event = JSON.parse(messageEvent.data) as RealtimeEvent
           realtimeEventQueueRef.current = realtimeEventQueueRef.current
@@ -473,6 +491,7 @@ export function useRealtimeStory({
               return handleRealtimeEvent(event, connection)
             })
             .catch((eventError) => {
+              if (connectionRef.current !== connection || dataChannelRef.current !== dataChannel) return
               failVoiceSession(getErrorMessage(eventError))
             })
         } catch {
@@ -483,6 +502,7 @@ export function useRealtimeStory({
       const offer = await connection.createOffer()
       await connection.setLocalDescription(offer)
       await waitForIceGathering(connection)
+      if (activeStartAttemptRef.current !== attemptId || connectionRef.current !== connection) return
       const sdp = connection.localDescription?.sdp
       if (!sdp) throw new Error("Unable to prepare the voice connection.")
 
@@ -497,6 +517,7 @@ export function useRealtimeStory({
           body: JSON.stringify({ sdp }),
         },
       )
+      if (activeStartAttemptRef.current !== attemptId || connectionRef.current !== connection) return
       if (!response.ok) {
         const body = await response.json().catch(() => null)
         throw new Error(
@@ -508,12 +529,18 @@ export function useRealtimeStory({
         type: "answer",
         sdp: await response.text(),
       })
+      if (activeStartAttemptRef.current !== attemptId || connectionRef.current !== connection) return
     } catch (startError) {
+      if (activeStartAttemptRef.current !== attemptId) return
       clearConnection()
       const message = getErrorMessage(startError)
       setError(message)
       setStatus("error")
       callbacksRef.current.onError(message)
+    } finally {
+      if (activeStartAttemptRef.current === attemptId) {
+        activeStartAttemptRef.current = null
+      }
     }
   }, [
     clearConnection,
@@ -540,15 +567,29 @@ export function useRealtimeStory({
     }
   }, [clearConnection, persistUserTranscript])
 
+  useEffect(() => {
+    return () => {
+      const unfinishedTranscripts = [...userTranscriptsRef.current.entries()]
+      const assistantWasStreaming = assistantStreamingRef.current
+      clearConnection()
+      if (assistantWasStreaming) callbacksRef.current.onAssistantCancelled()
+      for (const [itemId, transcript] of unfinishedTranscripts) {
+        void persistUserTranscript(itemId, transcript).catch(() => undefined)
+      }
+    }
+  }, [conversationId, clearConnection, persistUserTranscript])
+
   const sendText = useCallback(
     async (content: string) => {
       const dataChannel = dataChannelRef.current
       if (!content.trim()) return false
       if (!dataChannel || dataChannel.readyState !== "open") return false
 
+      const onUserMessage = callbacksRef.current.onUserMessage
+      const onConversationChanged = callbacksRef.current.onConversationChanged
       const message = await persistMessage("user", content.trim())
-      callbacksRef.current.onUserMessage(message)
-      callbacksRef.current.onConversationChanged(false)
+      onUserMessage(message)
+      onConversationChanged(false)
       dataChannel.send(
         JSON.stringify({
           type: "conversation.item.create",

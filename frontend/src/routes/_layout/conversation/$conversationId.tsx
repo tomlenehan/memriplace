@@ -210,6 +210,7 @@ function ConversationPage() {
           <ChatMessages conversationId={id} />
         </Box>
         <ChatInput
+          key={id}
           conversationId={id}
           storyFinished={isFinished}
           readyToSave={isReadyToSave}
