@@ -64,21 +64,18 @@ const storybookHeading = {
 const storySteps = [
   {
     icon: FiBookOpen,
-    index: "01",
     text: "Capture one moment by writing it down or talking it through.",
     title: "Start with a memory",
     color: "#FFF0BF",
   },
   {
     icon: FiMic,
-    index: "02",
     text: "Bring related memories together in a story or constellation in your personal Night Sky.",
     title: "Connect your memories",
     color: "#DDEDE1",
   },
   {
     icon: FiStar,
-    index: "03",
     text: PUBLIC_SKY_ENABLED
       ? "Preview a constellation, choose what others can read, then share it with the Global Night Sky."
       : "When sharing is available, you can preview a constellation, choose what others can read, and share it with the Global Night Sky.",
@@ -612,20 +609,11 @@ export function LandingPage({
                   boxShadow="0 5px 0 #E9EDDF"
                   data-revealed="false"
                   data-scroll-reveal="true"
-                  key={step.index}
+                  key={step.title}
                   p={{ base: 6, md: 7 }}
                   spacing={4}
                 >
                   <Flex align="center" color="#2E7A78" gap={3}>
-                    <Text
-                      fontSize="sm"
-                      fontWeight="bold"
-                      ml="auto"
-                      order={2}
-                      color="#738976"
-                    >
-                      {step.index}
-                    </Text>
                     <Flex
                       align="center"
                       bg={step.color}
