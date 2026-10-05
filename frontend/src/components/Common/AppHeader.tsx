@@ -18,7 +18,6 @@ import {
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
 import {
-  FiGitBranch,
   FiStar,
   FiLogOut,
   FiMenu,
@@ -27,12 +26,13 @@ import {
 
 import memriPlaceMark from "../../assets/images/MemriPlaceLighterLogo.png"
 import useAuth from "../../hooks/useAuth"
+import ConnectedStarsIcon from "./ConnectedStarsIcon"
 import UserMenu from "./UserMenu"
 import { PUBLIC_SKY_ENABLED } from "../../config"
 
 const links = [
   { label: "My Night Sky", to: "/conversations", icon: FiStar },
-  { label: "Global Night Sky", to: "/night-sky", icon: FiGitBranch },
+  { label: "Global Night Sky", to: "/night-sky", icon: ConnectedStarsIcon },
 ] as const
 
 function AppHeader() {

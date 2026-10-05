@@ -23,7 +23,6 @@ import {
   FiArrowRight,
   FiBookOpen,
   FiCheck,
-  FiGitBranch,
   FiGlobe,
   FiLogIn,
   FiLock,
@@ -36,6 +35,7 @@ import memriPlaceLogo from "../assets/images/MemriPlaceLighterLogo.png"
 import background from "../assets/images/homepage_parallax_flat/background.png"
 import foreground from "../assets/images/homepage_parallax_flat/foreground3.png"
 import midground from "../assets/images/homepage_parallax_flat/midground.png"
+import ConnectedStarsIcon from "../components/Common/ConnectedStarsIcon"
 import starscape from "../assets/images/homepage_parallax_flat/starscape.png"
 import sharedConstellationSky from "../assets/images/step3.webp"
 import AuthModal from "../components/Auth/AuthModal"
@@ -65,22 +65,24 @@ const storySteps = [
   {
     icon: FiBookOpen,
     index: "01",
-    text: "Start with a moment already on your mind.",
-    title: "Find a spark",
+    text: "Capture one moment by writing it down or talking it through.",
+    title: "Start with a memory",
     color: "#FFF0BF",
   },
   {
     icon: FiMic,
     index: "02",
-    text: "Your AI companion asks thoughtful questions to help you remember the details.",
-    title: "Follow the memory",
+    text: "Bring related memories together in a story or constellation in your personal Night Sky.",
+    title: "Connect your memories",
     color: "#DDEDE1",
   },
   {
     icon: FiStar,
     index: "03",
-    text: "Save the story to your own Night Sky or choose to share it.",
-    title: "Bring light to your story.",
+    text: PUBLIC_SKY_ENABLED
+      ? "Preview a constellation, choose what others can read, then share it with the Global Night Sky."
+      : "When sharing is available, you can preview a constellation, choose what others can read, and share it with the Global Night Sky.",
+    title: "Share if you want",
     color: "#E9DFF1",
   },
 ]
@@ -385,7 +387,7 @@ export function LandingPage({
                   <Button
                     as={Link}
                     to="/night-sky"
-                    leftIcon={<Icon as={FiGitBranch} />}
+                    leftIcon={<ConnectedStarsIcon />}
                     bg="rgba(9, 39, 50, 0.56)"
                     border="1px solid rgba(247, 213, 129, 0.62)"
                     boxShadow="0 2px 0 rgba(3, 19, 24, 0.34), inset 0 1px 0 rgba(255,255,255,0.12)"
@@ -909,7 +911,7 @@ export function LandingPage({
                     sx={storybookHeading}
                   >
                     {PUBLIC_SKY_ENABLED
-                      ? "Share a constellation whenever you choose."
+                      ? "Share a constellation and join the Memri community."
                       : "Your sky stays private while sharing is on its way."}
                   </Heading>
                   <Text color="rgba(255, 248, 232, 0.9)" lineHeight="1.7">
