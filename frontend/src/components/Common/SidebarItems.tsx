@@ -3,7 +3,9 @@ import { Link } from "@tanstack/react-router";
 import {
   FiGitBranch,
   FiHome,
-  FiSettings, FiStar, FiUsers } from "react-icons/fi";
+  FiSettings,
+  FiUsers,
+} from "react-icons/fi";
 import ConnectedStarsIcon from "./ConnectedStarsIcon";
 import useAuth from "../../hooks/useAuth";
 import { PUBLIC_SKY_ENABLED } from "../../config";
