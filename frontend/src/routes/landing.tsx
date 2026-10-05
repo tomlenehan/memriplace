@@ -71,7 +71,7 @@ const storySteps = [
   {
     icon: FiMic,
     text: "Bring related memories together in a story or constellation in your personal Night Sky.",
-    title: "Connect My Memories",
+    title: "Connect Memories to create a story",
     color: "#DDEDE1",
   },
   {
@@ -79,7 +79,7 @@ const storySteps = [
     text: PUBLIC_SKY_ENABLED
       ? "Preview a constellation, choose what others can read, then share it with the Global Night Sky."
       : "When sharing is available, you can preview a constellation, choose what others can read, and share it with the Global Night Sky.",
-    title: "Share if you want",
+    title: "Choose what you want to share",
     color: "#E9DFF1",
   },
 ]
@@ -426,15 +426,6 @@ export function LandingPage({
                   _active={{ transform: "translateY(1px)", boxShadow: "none" }}
                 >
                   Log in
-                </Button>
-                <Button
-                  as={Link}
-                  rightIcon={<FiArrowRight />}
-                  size={{ base: "sm", md: "md" }}
-                  to="/signup"
-                  variant="accent"
-                >
-                  Begin your story
                 </Button>
               </HStack>
             </Flex>
@@ -899,7 +890,7 @@ export function LandingPage({
                     sx={storybookHeading}
                   >
                     {PUBLIC_SKY_ENABLED
-                      ? "Share a constellation and join the Memri community."
+                      ? "Share your constellation with the Memri community."
                       : "Your sky stays private while sharing is on its way."}
                   </Heading>
                   <Text color="rgba(255, 248, 232, 0.9)" lineHeight="1.7">
@@ -962,7 +953,7 @@ export function LandingPage({
               variant="accent"
               mt={2}
             >
-              Begin your story
+              Start a memory
             </Button>
             <HStack color="#D6E2D4" spacing={2} fontSize="sm">
               <Icon as={FiLock} />
