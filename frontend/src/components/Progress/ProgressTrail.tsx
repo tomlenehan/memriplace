@@ -17,7 +17,7 @@ export default function ProgressTrail() {
   if (isError || !data)
     return (
       <Text fontSize="sm" color="ui.muted" mb={5}>
-        Your progress is temporarily unavailable. Your memories are still here.
+        Your progress is temporarily unavailable. My memories are still here.
       </Text>
     )
   const dates = Array.from({ length: 7 }, (_, i) => {

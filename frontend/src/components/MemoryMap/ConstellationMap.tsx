@@ -435,7 +435,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
         <Flex className="sky-header-copy" justify="space-between" align={{ base: "start", md: "center" }} direction={{ base: "column", md: "row" }} gap={4}>
         <Box><Text className="sky-overline">✦ &nbsp;YOUR PERSONAL NIGHT SKY</Text>
           <Heading fontFamily={'"Iowan Old Style", Georgia, serif'} size="md" color="#FFF9EA" mt={1}>
-            {mode === "memories" ? "Your memories, drawn in starlight" : "Your constellations"}
+            {mode === "memories" ? "My memories, drawn in starlight" : "Your constellations"}
           </Heading>
           <Text color="#D0E2D9" fontSize="md" mt={2} aria-live="polite">{guidance}</Text></Box>
         {crafting ? <HStack w={{ base: "full", md: "auto" }} flexWrap="wrap" spacing={2}>

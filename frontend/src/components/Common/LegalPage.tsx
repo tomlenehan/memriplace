@@ -99,7 +99,7 @@ export default function LegalPage({ kind }: { kind: LegalPageKind }) {
                   Your stories are private by default
                 </Heading>
                 <Text>
-                  Your memories, conversations, voice transcripts, and personal
+                  My memories, conversations, voice transcripts, and personal
                   night sky are private unless you choose to share them.{" "}
                   {PUBLIC_SKY_ENABLED
                     ? "You may explicitly publish a reviewed constellation to the Global Night Sky; only the story details and images you select are included."

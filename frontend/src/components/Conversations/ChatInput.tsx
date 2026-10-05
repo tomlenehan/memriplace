@@ -57,6 +57,7 @@ const statusLabels = {
 } as const
 
 const MIN_STORY_TURNS_BEFORE_SAVE = 4
+const EMPTY_CHAT_MESSAGES: ChatMessagePublic[] = []
 
 const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySaved, userTurnCount }: ChatInputProps) => {
   const { scale } = useReadingTextSize()
@@ -74,8 +75,12 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const dispatch = useDispatch<AppDispatch>()
-  const chatMessages = useSelector((state: RootState) => state.chat.messages)
-  const chatStatus = useSelector((state: RootState) => state.chat.status)
+  const chatMessages = useSelector((state: RootState) =>
+    state.chat.conversationId === conversationId ? state.chat.messages : EMPTY_CHAT_MESSAGES,
+  )
+  const chatStatus = useSelector((state: RootState) =>
+    state.chat.conversationId === conversationId ? state.chat.status : "loading",
+  )
   const showToast = useCustomToast()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [startMode, setStartMode] = useState<"choose" | "voice" | "type">("choose")
@@ -87,7 +92,7 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
   const assistantVoiceMessageId = useRef<number | null>(null)
   const userVoiceMessageIds = useRef(new Map<string, number>())
   const completedUserTranscriptIds = useRef(new Set<string>())
-  const nextVoiceMessageId = useRef(Date.now() * 10)
+  const nextVoiceMessageId = useRef(-Date.now() * 10)
   const isStoryFinished = storyFinished
   const bgColor = useColorModeValue("ui.light", "ui.dark")
   const textColor = useColorModeValue("ui.dark", "ui.light")
@@ -121,13 +126,13 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
 
     const tempId = Date.now() + 1
     streamingMessageId.current = tempId
-    dispatch(startStreamingMessage({ id: tempId }))
+    dispatch(startStreamingMessage({ conversationId, id: tempId }))
     let pendingText = ""
     let frame: number | null = null
     const flushText = () => {
       frame = null
       if (!pendingText) return
-      dispatch(addStreamingMessage({ id: tempId, content: pendingText }))
+      dispatch(addStreamingMessage({ conversationId, id: tempId, content: pendingText }))
       pendingText = ""
     }
 
@@ -162,7 +167,7 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
     } finally {
       if (frame !== null) window.cancelAnimationFrame(frame)
       flushText()
-      dispatch(endStreamingMessage({ id: tempId }))
+      dispatch(endStreamingMessage({ conversationId, id: tempId }))
       streamingMessageId.current = null
       await dispatch(fetchMessages(conversationId))
       refreshConversation(false)
@@ -177,12 +182,12 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
         userVoiceMessageIds.current.delete(itemId)
       }
       if (draftId !== undefined) {
-        dispatch(replaceStreamingMessage({ id: draftId, message }))
+        dispatch(replaceStreamingMessage({ conversationId, id: draftId, message }))
       } else {
-        dispatch(addMessage(message))
+        dispatch(addMessage({ conversationId, message }))
       }
     },
-    [dispatch],
+    [conversationId, dispatch],
   )
 
   const handleVoiceUserTranscriptDelta = useCallback(
@@ -190,55 +195,55 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
       if (completedUserTranscriptIds.current.has(itemId)) return
       let messageId = userVoiceMessageIds.current.get(itemId)
       if (messageId === undefined) {
-        messageId = ++nextVoiceMessageId.current
+        messageId = --nextVoiceMessageId.current
         userVoiceMessageIds.current.set(itemId, messageId)
-        dispatch(startStreamingMessage({ id: messageId, sender_type: "user" }))
+        dispatch(startStreamingMessage({ conversationId, id: messageId, sender_type: "user" }))
       }
-      dispatch(addStreamingMessage({ id: messageId, content }))
+      dispatch(addStreamingMessage({ conversationId, id: messageId, content }))
     },
-    [dispatch],
+    [conversationId, dispatch],
   )
 
   const handleVoiceUserTranscriptFailed = useCallback(
     (itemId: string) => {
       const messageId = userVoiceMessageIds.current.get(itemId)
       if (messageId !== undefined) {
-        dispatch(removeStreamingMessage({ id: messageId }))
+        dispatch(removeStreamingMessage({ conversationId, id: messageId }))
         userVoiceMessageIds.current.delete(itemId)
       }
       completedUserTranscriptIds.current.add(itemId)
     },
-    [dispatch],
+    [conversationId, dispatch],
   )
 
   const handleVoiceAssistantStart = useCallback(() => {
     if (assistantVoiceMessageId.current) return
-    const tempId = ++nextVoiceMessageId.current
+    const tempId = --nextVoiceMessageId.current
     assistantVoiceMessageId.current = tempId
-    dispatch(startStreamingMessage({ id: tempId }))
-  }, [dispatch])
+    dispatch(startStreamingMessage({ conversationId, id: tempId }))
+  }, [conversationId, dispatch])
 
   const handleVoiceAssistantDelta = useCallback(
     (content: string) => {
       if (assistantVoiceMessageId.current === null) return
-      dispatch(addStreamingMessage({ id: assistantVoiceMessageId.current, content }))
+      dispatch(addStreamingMessage({ conversationId, id: assistantVoiceMessageId.current, content }))
     },
-    [dispatch],
+    [conversationId, dispatch],
   )
 
   const handleVoiceAssistantComplete = useCallback(() => {
     if (assistantVoiceMessageId.current !== null) {
-      dispatch(endStreamingMessage({ id: assistantVoiceMessageId.current }))
+      dispatch(endStreamingMessage({ conversationId, id: assistantVoiceMessageId.current }))
       assistantVoiceMessageId.current = null
     }
-  }, [dispatch])
+  }, [conversationId, dispatch])
 
   const handleVoiceAssistantCancelled = useCallback(() => {
     if (assistantVoiceMessageId.current !== null) {
-      dispatch(removeStreamingMessage({ id: assistantVoiceMessageId.current }))
+      dispatch(removeStreamingMessage({ conversationId, id: assistantVoiceMessageId.current }))
       assistantVoiceMessageId.current = null
     }
-  }, [dispatch])
+  }, [conversationId, dispatch])
 
   const handleVoiceError = useCallback(
     (message: string) => showToast("Voice conversation", message, "error"),
@@ -365,7 +370,7 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
         content,
         timestamp: new Date().toISOString(),
       }
-      dispatch(addMessage(newMessage))
+      dispatch(addMessage({ conversationId, message: newMessage }))
       reset()
 
       try {

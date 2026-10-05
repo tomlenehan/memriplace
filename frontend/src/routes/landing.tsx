@@ -71,7 +71,7 @@ const storySteps = [
   {
     icon: FiMic,
     text: "Bring related memories together in a story or constellation in your personal Night Sky.",
-    title: "Connect your memories",
+    title: "Connect My Memories",
     color: "#DDEDE1",
   },
   {
@@ -682,7 +682,7 @@ export function LandingPage({
               <HStack spacing={3} align="start">
                 <Icon as={FiSun} color="#A87930" mt={1} boxSize={5} />
                 <Text color="#617569" lineHeight="1.8">
-                  Save your memories in consecutive days to build a streak. Or take
+                  Save My Memories in consecutive days to build a streak. Or take
                   your time.
                 </Text>
               </HStack>
@@ -832,7 +832,7 @@ export function LandingPage({
                   fontSize={{ base: "md", md: "lg" }}
                   lineHeight="1.8"
                 >
-                  Your memories start private. Nothing is
+                  My Memories start private. Nothing is
                   shared automatically.
                 </Text>
               </Stack>

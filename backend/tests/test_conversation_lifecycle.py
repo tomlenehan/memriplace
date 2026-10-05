@@ -16,13 +16,14 @@ from app.llm.conversation_lifecycle import (
     run_post_reply_workflow,
 )
 from app.llm.evaluations import LIFECYCLE_EVALUATION_CASES, evaluate_lifecycle_case
-from app.llm.utils import MIN_READY_USER_TURNS
+from app.llm.utils import MAX_NODE_USER_TURNS, MIN_READY_USER_TURNS
 from app.models import (
     ChatMessage,
     ChatMessageCreate,
     ChatMessageSender,
     Conversation,
     ConversationStatus,
+    StorySummary,
 )
 
 
@@ -152,8 +153,15 @@ def test_resuming_ready_active_story_adds_one_question_after_pause_message() -> 
         def get(self, model, _id):
             return conversation if model is Conversation else None
 
-        def exec(self, _statement):
-            return SimpleNamespace(first=lambda: self.latest_message)
+        def exec(self, statement):
+            entity = statement.column_descriptions[0]["entity"]
+            if entity is Conversation:
+                result = conversation
+            elif entity is ChatMessage:
+                result = self.latest_message
+            else:
+                result = None
+            return SimpleNamespace(first=lambda: result)
 
         def add(self, item) -> None:
             self.added.append(item)
@@ -179,6 +187,103 @@ def test_resuming_ready_active_story_adds_one_question_after_pause_message() -> 
     ]
     assert len(resume_messages) == 1
     assert conversation.ready_to_save is False
+
+
+def test_resuming_paused_ready_story_is_idempotent_and_keeps_save_eligibility() -> None:
+    conversation = Conversation(
+        id=42,
+        user_id=7,
+        status=ConversationStatus.READY_FOR_SUMMARY,
+        ready_to_save=True,
+        user_turn_count=1,
+    )
+    latest_message = ChatMessage(
+        id=2,
+        conversation_id=42,
+        sender_id=7,
+        sender_type=ChatMessageSender.AI,
+        content=STORY_EXPLICIT_PAUSE_MESSAGE,
+    )
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+            self.latest_message = latest_message
+
+        def exec(self, statement):
+            entity = statement.column_descriptions[0]["entity"]
+            if entity is Conversation:
+                result = conversation
+            elif entity is ChatMessage:
+                result = self.latest_message
+            elif entity is StorySummary:
+                result = None
+            else:
+                result = None
+            return SimpleNamespace(first=lambda: result)
+
+        def add(self, item) -> None:
+            self.added.append(item)
+            if isinstance(item, ChatMessage):
+                self.latest_message = item
+
+        def commit(self) -> None:
+            pass
+
+        def refresh(self, _item) -> None:
+            pass
+
+    session = FakeSession()
+    user = SimpleNamespace(id=7)
+
+    activate_story_node(id=42, session=session, current_user=user)
+    activate_story_node(id=42, session=session, current_user=user)
+
+    resume_messages = [
+        item
+        for item in session.added
+        if isinstance(item, ChatMessage) and item.content == STORY_RESUME_QUESTION
+    ]
+    assert len(resume_messages) == 1
+    assert conversation.status == ConversationStatus.ACTIVE
+    assert conversation.ready_to_save is True
+
+
+def test_ready_story_at_turn_limit_cannot_be_resumed() -> None:
+    conversation = Conversation(
+        id=42,
+        user_id=7,
+        status=ConversationStatus.READY_FOR_SUMMARY,
+        ready_to_save=True,
+        user_turn_count=MAX_NODE_USER_TURNS,
+    )
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def exec(self, statement):
+            entity = statement.column_descriptions[0]["entity"]
+            return SimpleNamespace(first=lambda: conversation if entity is Conversation else None)
+
+        def add(self, item) -> None:
+            self.added.append(item)
+
+        def commit(self) -> None:
+            pass
+
+        def refresh(self, _item) -> None:
+            pass
+
+    session = FakeSession()
+
+    activate_story_node(id=42, session=session, current_user=SimpleNamespace(id=7))
+
+    assert conversation.status == ConversationStatus.READY_FOR_SUMMARY
+    assert not any(
+        isinstance(item, ChatMessage) and item.content == STORY_RESUME_QUESTION
+        for item in session.added
+    )
 
 
 def test_post_reply_workflow_uses_a_named_parent_trace(monkeypatch) -> None:

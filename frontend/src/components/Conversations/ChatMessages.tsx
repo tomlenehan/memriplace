@@ -5,6 +5,10 @@ import { FiHeart, FiUser } from "react-icons/fi";
 import { useReadingTextSize } from "../Common/ReadingTextSize";
 import { fetchMessages, clearMessages } from "../../redux/chatSlice";
 import { RootState, AppDispatch } from "../../redux/store";
+import type { ChatMessagePublic } from "../../client";
+
+const EMPTY_MESSAGES: ChatMessagePublic[] = []
+const EMPTY_MESSAGE_IDS: number[] = []
 
 interface ChatMessagesProps {
   conversationId: number;
@@ -12,10 +16,18 @@ interface ChatMessagesProps {
 
 const ChatMessages = ({ conversationId }: ChatMessagesProps) => {
   const dispatch: AppDispatch = useDispatch();
-  const messages = useSelector((state: RootState) => state.chat.messages);
-  const streamingMessageIds = useSelector((state: RootState) => state.chat.streamingMessageIds);
-  const status = useSelector((state: RootState) => state.chat.status);
-  const error = useSelector((state: RootState) => state.chat.error);
+  const messages = useSelector((state: RootState) =>
+    state.chat.conversationId === conversationId ? state.chat.messages : EMPTY_MESSAGES,
+  );
+  const streamingMessageIds = useSelector((state: RootState) =>
+    state.chat.conversationId === conversationId ? state.chat.streamingMessageIds : EMPTY_MESSAGE_IDS,
+  );
+  const status = useSelector((state: RootState) =>
+    state.chat.conversationId === conversationId ? state.chat.status : "loading",
+  );
+  const error = useSelector((state: RootState) =>
+    state.chat.conversationId === conversationId ? state.chat.error : null,
+  );
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const previousMessageCountRef = useRef(0);
@@ -24,7 +36,7 @@ const ChatMessages = ({ conversationId }: ChatMessagesProps) => {
   const { scale } = useReadingTextSize();
 
   useEffect(() => {
-    dispatch(clearMessages());
+    dispatch(clearMessages(conversationId));
     dispatch(fetchMessages(conversationId));
   }, [conversationId, dispatch]);
 
