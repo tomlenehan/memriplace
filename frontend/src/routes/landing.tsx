@@ -909,7 +909,7 @@ export function LandingPage({
                     sx={storybookHeading}
                   >
                     {PUBLIC_SKY_ENABLED
-                      ? "Share one constellation when you’re ready."
+                      ? "Share a constellation whenever you choose."
                       : "Your sky stays private while sharing is on its way."}
                   </Heading>
                   <Text color="rgba(255, 248, 232, 0.9)" lineHeight="1.7">
