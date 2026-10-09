@@ -9,6 +9,7 @@ import {
   Icon,
   SimpleGrid,
   Skeleton,
+  Spinner,
   Stack,
   Text,
 } from "@chakra-ui/react"
@@ -31,7 +32,7 @@ import {
   type UserStoryPromptPublic,
 } from "../../client"
 import { storyStarters, type StoryStarterTopic } from "../../lib/storyStarters"
-import { organizeStoryPaths } from "../../lib/storyPaths"
+import { organizeStoryPaths, pendingStorySuggestionParentId } from "../../lib/storyPaths"
 import "./story-paths.css"
 
 export const Route = createFileRoute("/_layout/")({
@@ -51,6 +52,7 @@ function Dashboard() {
   const conversationsQuery = useQuery({
     queryKey: ["conversationConstellation"],
     queryFn: () => ConversationsService.readConversations({ limit: 500 }),
+    refetchInterval: (query) => pendingStorySuggestionParentId(query.state.data?.data) ? 1500 : false,
   })
   const memoriesQuery = useQuery({
     queryKey: ["summaries"],
@@ -58,6 +60,10 @@ function Dashboard() {
   })
   const paths = useMemo(() => organizeStoryPaths(conversationsQuery.data?.data ?? [], memoriesQuery.data ?? []),
     [conversationsQuery.data, memoriesQuery.data])
+  const pendingSuggestionParentId = pendingStorySuggestionParentId(conversationsQuery.data?.data)
+  const pendingSuggestionSource = pendingSuggestionParentId == null
+    ? null
+    : paths.memoryByConversationId.get(pendingSuggestionParentId)?.title?.trim() || "your latest memory"
   const startStory = useMutation({
     mutationFn: ({ promptId, topic }: { promptId?: number; topic?: StoryStarterTopic }) =>
       ConversationsService.createConversation({
@@ -150,15 +156,18 @@ function Dashboard() {
           </SimpleGrid>
         </Box>}
 
-        {paths.suggested.length > 0 && <Box as="section" aria-labelledby="suggested-heading">
-          <Heading id="suggested-heading" size="md" mb={1}>Suggested from your stories</Heading>
-          <Text color="ui.muted" fontSize="sm" mb={4}>Follow a detail you shared in an earlier conversation.</Text>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+        {(paths.suggested.length > 0 || pendingSuggestionParentId != null) && <Box as="section" aria-labelledby="suggested-heading">
+          <Heading id="suggested-heading" size="md" mb={1}>A thread to follow</Heading>
+          <Text color="ui.muted" fontSize="sm" mb={4}>A detail from a saved memory may open another story. Choose one to explore, or leave it for later.</Text>
+          {pendingSuggestionParentId != null ? <Flex role="status" align="center" gap={3} p={4} border="1px solid" borderColor="ui.line" borderRadius="8px" bg="#F0F2F0" color="ui.muted">
+            <Spinner size="sm" color="ui.main" />
+            <Text>Finding a thoughtful next thread from {pendingSuggestionSource}…</Text>
+          </Flex> : <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             {paths.suggested.map((conversation) => <StoryPathTile key={conversation.id} conversation={conversation}
               state="suggested" sourceTitle={paths.sourceTitle(conversation)}
               onClick={() => activateSuggestion.mutate(conversation.id)}
               disabled={activateSuggestion.isPending} />)}
-          </SimpleGrid>
+          </SimpleGrid>}
         </Box>}
 
         {(conversationsQuery.isError || memoriesQuery.isError || activateSuggestion.isError) && <Alert status="error" borderRadius="8px">

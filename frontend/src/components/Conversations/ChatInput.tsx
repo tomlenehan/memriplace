@@ -23,10 +23,11 @@ import { FiArrowLeft, FiCheck, FiEdit3, FiHeadphones, FiMic, FiMicOff, FiSend, F
 import { GiSecretBook } from "react-icons/gi"
 import { useDispatch, useSelector } from "react-redux"
 
-import { ConversationsService, SummariesService, type ChatMessageCreate, type ChatMessagePublic } from "../../client"
+import { ConversationsService, SummariesService, type ChatMessageCreate, type ChatMessagePublic, type ConversationsPublic } from "../../client"
 import { API_BASE_URL } from "../../config"
 import useCustomToast from "../../hooks/useCustomToast"
 import { useRealtimeStory } from "../../hooks/useRealtimeStory"
+import { clearStorySuggestionPending, markStorySuggestionPending } from "../../lib/storyPaths"
 import { useReadingTextSize } from "../Common/ReadingTextSize"
 import {
   addMessage,
@@ -295,13 +296,35 @@ const ChatInput = ({ conversationId, storyFinished, readyToSave, memoryAlreadySa
       const summary = await SummariesService.createStorySummary({
         requestBody: { conversation_id: conversationId, tone: 50 },
       })
+      markStorySuggestionPending(conversationId)
+      const suggestionGeneration = ConversationsService.retryStoryBranches({ id: conversationId })
+        .then((branches) => ({ branches }))
+        .catch(() => ({ branches: null }))
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["summaries"] }),
         queryClient.invalidateQueries({ queryKey: ["memoryProgress"] }),
         queryClient.invalidateQueries({ queryKey: ["conversationConstellation"] }),
       ])
+      void suggestionGeneration.then(({ branches }) => {
+        if (branches == null) {
+          clearStorySuggestionPending(conversationId)
+          showToast(
+            "No follow-up ideas yet",
+            "Your memory is saved. You can still start anywhere that feels right.",
+            "info",
+          )
+          return
+        }
+        clearStorySuggestionPending(conversationId)
+        queryClient.setQueryData<ConversationsPublic>(["conversationConstellation"], (current) => {
+          if (!current) return current
+          const byId = new Map(current.data.map((conversation) => [conversation.id, conversation]))
+          branches.forEach((conversation) => byId.set(conversation.id, conversation))
+          return { data: [...byId.values()], count: Math.max(current.count, byId.size) }
+        })
+      })
       celebrateMemory()
-      showToast("Memory saved", "Review and shape your memory on the next page.", "success")
+      showToast("Memory saved", "Review your story while we look for a thoughtful thread to follow.", "success")
       await navigate({
         to: "/summary/$summaryId",
         params: { summaryId: String(summary.id) },
