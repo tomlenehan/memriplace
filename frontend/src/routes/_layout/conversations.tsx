@@ -36,7 +36,7 @@ import NarrationControl from "../../components/Common/NarrationControl"
 import StoryTopicPicker from "../../components/Conversations/StoryTopicPicker"
 import { nightSkyApi, type Constellation } from "../../lib/nightSkyApi"
 import { type StoryStarterTopic } from "../../lib/storyStarters"
-import { organizeStoryPaths } from "../../lib/storyPaths"
+import { organizeStoryPaths, pendingStorySuggestionParentId } from "../../lib/storyPaths"
 
 export const Route = createFileRoute("/_layout/conversations")({
   validateSearch: (search: Record<string, unknown>): { mode?: "constellations" } =>
@@ -89,6 +89,7 @@ function MemoryMap() {
   const conversationsQuery = useQuery({
     queryKey: ["conversationConstellation"],
     queryFn: () => ConversationsService.readConversations({ limit: 500 }),
+    refetchInterval: (query) => pendingStorySuggestionParentId(query.state.data?.data) ? 1500 : false,
   })
   const storiesQuery = useQuery({
     queryKey: ["summaries"],
@@ -246,7 +247,8 @@ function MemoryMap() {
       ) : (
         <ConstellationMap
           stories={stories}
-          unfinishedStories={paths.inProgress}
+          unfinishedStories={[...paths.inProgress, ...paths.suggested]}
+          suggestionsPending={pendingStorySuggestionParentId(conversationsQuery.data?.data) != null}
           conversations={conversationsQuery.data?.data ?? []}
           onStartMemory={openTopics}
           groups={groupsQuery.data ?? []}

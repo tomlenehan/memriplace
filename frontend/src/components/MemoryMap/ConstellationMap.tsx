@@ -113,9 +113,10 @@ function layout(items: SkyItem[], compact: boolean, narrow: boolean, group?: Con
   }]))
 }
 
-export default function ConstellationMap({ stories, unfinishedStories = [], conversations = [], groups = [], mode, crafting, onCraftingChange, focusedGroupId, onFocusedGroupChange, onStartMemory, toolbar, headerActions, listContent }: {
+export default function ConstellationMap({ stories, unfinishedStories = [], suggestionsPending = false, conversations = [], groups = [], mode, crafting, onCraftingChange, focusedGroupId, onFocusedGroupChange, onStartMemory, toolbar, headerActions, listContent }: {
   stories: StorySummaryPublic[]
   unfinishedStories?: ConversationPublic[]
+  suggestionsPending?: boolean
   conversations?: ConversationPublic[]
   groups?: Constellation[]
   mode: "memories" | "constellations"
@@ -230,7 +231,9 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
       : picked.length === 1
         ? "Choose another memory to connect it. Tap a selected star again to remove it."
         : `${picked.length} stars chosen. Add more, or name your constellation.`
-    : mode === "memories" ? "Select a star to read, continue, or start a memory."
+    : mode === "memories" ? suggestionsPending
+      ? "A follow-up star is taking shape from your latest saved memory. You can explore the rest of your sky while it appears."
+      : "Bright stars are saved memories. Softer stars are stories in progress or suggested threads to explore."
       : focusedGroup ? `${focusedGroup.members.length} connected memories. Select a star to read it.`
         : focusedGroupId === NO_CONSTELLATION_SELECTION ? "Constellation connections are hidden. Select a constellation to explore it."
           : groups.length ? "Choose a constellation to see its story, or select a star to read a memory."
@@ -480,6 +483,7 @@ export default function ConstellationMap({ stories, unfinishedStories = [], conv
             <Text className="sky-map-key-title">Map key</Text>
             <span><i className="sky-key-dot sky-key-dot--complete" />Complete</span>
             <span><i className="sky-key-dot sky-key-dot--progress" />In progress</span>
+            <span><i className="sky-key-dot sky-key-dot--suggested" />Suggested</span>
             <span><i className="sky-key-dot sky-key-dot--starter" />Starter</span>
             <span><i className="sky-connection-line sky-connection-line--saved" />Saved constellation</span>
           </Box>}
