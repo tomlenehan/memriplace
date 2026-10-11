@@ -1,10 +1,13 @@
 import logging
+from typing import Literal
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.core.db import engine
 from app.llm.tracing import llm_trace_config
 from app.llm.utils import MODEL_NAME
@@ -12,6 +15,8 @@ from app.models import ChatMessage, ChatMessageSender, Conversation, Conversatio
 
 MAX_NODE_DEPTH = 4
 logger = logging.getLogger(__name__)
+TYPESAFE_API_URL = "https://api.typesafe.ai/v1/systemone"
+MIN_RANKING_CONFIDENCE = 0.55
 
 
 class StoryBranch(BaseModel):
@@ -22,6 +27,84 @@ class StoryBranch(BaseModel):
 
 class StoryBranchPlan(BaseModel):
     branches: list[StoryBranch] = Field(min_length=1, max_length=2)
+
+
+class TypeSafeChoiceAnswer(BaseModel):
+    type: Literal["choice"]
+    choice: str
+    confidence: float
+    probabilities: dict[str, float]
+
+
+class TypeSafeSystemOneResponse(BaseModel):
+    answers: dict[str, TypeSafeChoiceAnswer]
+
+
+async def rank_story_branches(
+    story_details: str, branches: list[StoryBranch]
+) -> list[StoryBranch]:
+    """Put the most grounded, inviting follow-up first; never make ranking required."""
+    api_key = settings.TYPESAFE_API_KEY
+    if not api_key or len(branches) < 2:
+        return branches
+
+    option_names = [f"idea_{index + 1}" for index in range(len(branches))]
+    criteria = {
+        name: (
+            f"Title: {branch.title}\n"
+            f"Grounding detail: {branch.connection}\n"
+            f"Opening question: {branch.prompt}"
+        )
+        for name, branch in zip(option_names, branches, strict=True)
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                TYPESAFE_API_URL,
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": settings.TYPESAFE_MODEL,
+                    "state": {"storyteller_details": story_details[-8000:]},
+                    "questions": {
+                        "follow_up": {
+                            "type": "choice",
+                            "instructions": (
+                                "Choose which follow-up idea should be shown first. Prefer the one "
+                                "most clearly grounded in a concrete detail the storyteller gave, "
+                                "easy to answer with another specific memory, and meaningfully "
+                                "different from the other idea. Do not infer hidden feelings or "
+                                "facts, and do not prefer drama over fidelity."
+                            ),
+                            "criteria": criteria,
+                        }
+                    },
+                },
+            )
+            response.raise_for_status()
+        answer = TypeSafeSystemOneResponse.model_validate(response.json()).answers[
+            "follow_up"
+        ]
+        if (
+            answer.confidence < MIN_RANKING_CONFIDENCE
+            or answer.choice not in option_names
+            or set(answer.probabilities) != set(option_names)
+        ):
+            return branches
+
+        ranked_indices = sorted(
+            range(len(branches)),
+            key=lambda index: answer.probabilities[option_names[index]],
+            reverse=True,
+        )
+        if option_names[ranked_indices[0]] != answer.choice:
+            return branches
+        return [branches[index] for index in ranked_indices]
+    except Exception as error:
+        logger.warning(
+            "TypeSafe follow-up ranking failed (%s); keeping generated order",
+            type(error).__name__,
+        )
+        return branches
 
 
 def get_conversation_prompt(conversation: Conversation) -> str:
@@ -86,6 +169,12 @@ async def create_story_branches(
     if not any(message.sender_type == ChatMessageSender.USER for message in messages):
         return []
 
+    story_details = "\n".join(
+        message.content.strip()
+        for message in messages
+        if message.sender_type == ChatMessageSender.USER and message.content.strip()
+    )
+
     instructions = """You design thoughtful follow-up paths for someone's personal story.
 Create one strong child story node by default, and a second only when the transcript contains
 another genuinely distinct thread worth exploring. Ground every title, connection, and question
@@ -109,6 +198,7 @@ Conversation transcript:
         [SystemMessage(content=instructions), HumanMessage(content=request)],
         config=llm_trace_config("story.branches"),
     )
+    ranked_branches = await rank_story_branches(story_details, plan.branches)
 
     # A manual retry may have finished while the automatic request was generating.
     existing_children = session.exec(
@@ -120,7 +210,9 @@ Conversation transcript:
         return existing_children
 
     children = []
-    for branch in plan.branches[:2]:
+    # The Night Sky sorts follow-up nodes newest-first, so persist the best-ranked
+    # candidate last. That keeps the ranking stable without adding a schema field.
+    for branch in reversed(ranked_branches[:2]):
         child = Conversation(
             user_id=conversation.user_id,
             parent_conversation_id=conversation.id,

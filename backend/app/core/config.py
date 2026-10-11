@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
     OPENAI_API_KEY: str | None = None
+    TYPESAFE_API_KEY: str | None = None
+    TYPESAFE_MODEL: str = "jev-latest"
     GOOGLE_CLIENT_ID: str | None = None
     STORY_READINESS_MODEL: str = "gpt-4o-mini"
     OPENAI_REALTIME_MODEL: str = "gpt-realtime-2.1"
